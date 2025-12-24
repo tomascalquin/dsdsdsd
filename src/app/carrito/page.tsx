@@ -90,7 +90,7 @@ export default function CartPage() {
                     Eliminar
                   </button>
                 </div>
-              </div>
+              </div>  
             </div>
           ))}
         </div>

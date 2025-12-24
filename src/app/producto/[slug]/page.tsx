@@ -72,7 +72,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="prose prose-lg text-gray-600 mb-10 leading-relaxed">
             <p>{product.description}</p>
           </div>
-
+          <div className="mt-8 grid grid-cols-3 gap-4 border-t pt-6 text-center text-[10px] md:text-xs font-medium text-gray-600">
+            <div>
+              <span className="block text-2xl mb-1">🚚</span>
+              ENVÍO GRATIS
+            </div>
+            <div>
+              <span className="block text-2xl mb-1">🛡️</span>
+              PAGO SEGURO
+            </div>
+            <div>
+              <span className="block text-2xl mb-1">⭐</span>
+              CALIDAD GARANTIZADA
+            </div>
+          </div>
+ 
           <div className="flex gap-4">
       
             <AddToCartBtn 
