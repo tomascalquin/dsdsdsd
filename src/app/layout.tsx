@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import { CartProvider } from "@/context/CartContext"; // <--- 1. IMPORTAR
+import { CartProvider } from "@/context/CartContext";
+import { AuthProvider } from "@/context/AuthContext"; // <--- IMPORTAR
 
-const inter = Inter({ subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "800"],
+});
 
 export const metadata: Metadata = {
-  title: "Cantarita - Tienda de Mimbre",
-  description: "Artesanía de lujo de Chimbarongo",
+  title: "Cantarita | Store",
+  description: "Tienda oficial",
 };
 
 export default function RootLayout({
@@ -18,14 +22,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={inter.className}>
-        {/* 2. ENVOLVER TODO CON EL PROVIDER */}
-        <CartProvider>
-          <Navbar />
-          <main className="min-h-screen">
-            {children}
-          </main>
-        </CartProvider>
+      <body className={`${jakarta.className} antialiased bg-gray-50 text-slate-900`}>
+        <AuthProvider> {/* <--- 1. ENVOLVER PRIMERO CON AUTH */}
+          <CartProvider> {/* <--- 2. LUEGO EL CART */}
+            <Navbar />
+            <main className="min-h-screen flex flex-col">
+              {children}
+            </main>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );
