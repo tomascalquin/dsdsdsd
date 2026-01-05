@@ -29,7 +29,7 @@ export default function ProductCard({ title, price, image, slug }: ProductProps)
           <h3 className="text-sm text-gray-700 font-medium">
             {title}
           </h3>
-          <p className="mt-1 text-sm text-gray-500">Mimbre Natural</p>
+          <p className="mt-1 text-sm text-gray-500"></p>
         </div>
         <p className="text-sm font-bold text-gray-900">${price.toLocaleString('es-CL')}</p>
       </div>

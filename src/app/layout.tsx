@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { CartProvider } from "@/context/CartContext";
-import { AuthProvider } from "@/context/AuthContext"; // <--- IMPORTAR
+import { AuthProvider } from "@/context/AuthContext";
+import { Toaster } from "sonner";
 
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ["latin"],
@@ -11,8 +13,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Cantarita | Store",
-  description: "Tienda oficial",
+  title: "DropsC | Store", // <--- CAMBIO AQUÍ
+  description: "Tienda oficial DropsC",
 };
 
 export default function RootLayout({
@@ -23,12 +25,14 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${jakarta.className} antialiased bg-gray-50 text-slate-900`}>
-        <AuthProvider> {/* <--- 1. ENVOLVER PRIMERO CON AUTH */}
-          <CartProvider> {/* <--- 2. LUEGO EL CART */}
+        <AuthProvider>
+          <CartProvider>
+            <Toaster position="top-center" richColors />
             <Navbar />
             <main className="min-h-screen flex flex-col">
               {children}
             </main>
+            <Footer />
           </CartProvider>
         </AuthProvider>
       </body>

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { toast } from "sonner"; // <--- Importamos las notificaciones
 
 export default function CheckoutPage() {
   const { items, cartTotal, clearCart } = useCart();
@@ -28,14 +29,14 @@ export default function CheckoutPage() {
     if (user?.email) setFormData(prev => ({ ...prev, email: user.email! }));
   }, [user]);
 
-  // Si no hay items, volver al home
+  // Si no hay items, volver al home con un diseño amigable
   if (items.length === 0) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-10 text-center">
-        <p className="text-xl mb-4">Tu carrito está vacío.</p> 
+        <p className="text-xl mb-4 text-gray-600">Tu carrito está vacío.</p> 
         <button 
           onClick={() => router.push("/")} 
-          className="underline font-bold text-orange-600 hover:text-black"
+          className="px-6 py-3 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-all"
         >
           Volver a la tienda
         </button>
@@ -49,47 +50,48 @@ export default function CheckoutPage() {
 
   const handlePayment = async () => {
     setLoading(true);
+    const toastId = toast.loading("Iniciando pago seguro..."); // Feedback inmediato
 
     try {
       // 1. Generar ID de orden único y legible (Ej: ORDER_171562...)
       const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       
       // 2. Guardar orden en Supabase (Estado pendiente)
+      // Nota: Usamos 'user_id' si existe, si no, queda como compra de invitado (null)
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          order_id: orderId, // <--- CAMPO CLAVE
+          order_id: orderId,
           total: cartTotal,
           customer_email: formData.email,
           customer_name: formData.fullName,
           phone: formData.phone,
           address: `${formData.address}, ${formData.city}`,
           status: 'pendiente',
-          user_id: user?.id || null,
-          payment_method: 'webpay'
+          payment_status: 'pending',
+          payment_method: 'webpay',
+          user_id: user?.id || null 
         })
         .select()
         .single();
 
-      if (orderError) throw new Error(`Error al crear orden: ${orderError.message}`);
+      if (orderError) throw new Error(`Error BD Orden: ${orderError.message}`);
 
       // 3. Guardar los items asociados a la orden
       const orderItems = items.map((item) => ({
-        order_id: order.id, // Usamos el UUID interno de la base de datos para la relación
+        order_id: order.id, // Relación con el UUID de la orden
         product_id: item.id,
         quantity: item.quantity,
         price: item.price
       }));
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw new Error(`Error al guardar productos: ${itemsError.message}`);
+      if (itemsError) throw new Error(`Error BD Items: ${itemsError.message}`);
 
       // 4. Crear transacción en WebPay (Llamada a tu API)
       const webpayResponse = await fetch('/api/webpay/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: cartTotal,
           orderId: orderId,
@@ -110,8 +112,11 @@ export default function CheckoutPage() {
         .update({ webpay_token: webpayData.token })
         .eq('id', order.id);
 
-      // 6. REDIRECCIÓN SEGURA A WEBPAY (Formulario POST)
-      // Esto reemplaza el window.location.href para cumplir con el estándar de Transbank
+      // 6. REDIRECCIÓN SEGURA (Formulario POST Oculto)
+      // Esto es obligatorio por Transbank. No usar window.location.href.
+      toast.dismiss(toastId); // Quitamos el loading
+      toast.success("Redirigiendo a WebPay...");
+
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = webpayData.url;
@@ -123,11 +128,15 @@ export default function CheckoutPage() {
 
       form.appendChild(tokenInput);
       document.body.appendChild(form);
-      form.submit(); // Enviamos al usuario a pagar
+      form.submit(); // ¡Enviamos al usuario a pagar!
 
     } catch (error: any) {
       console.error(error);
-      alert("Error al procesar el pago: " + error.message);
+      toast.dismiss(toastId);
+      toast.error("No se pudo iniciar el pago", {
+        description: error.message || "Verifica tu conexión e intenta de nuevo.",
+        duration: 5000,
+      });
       setLoading(false);
     }
   };
@@ -141,16 +150,20 @@ export default function CheckoutPage() {
           <div>
             <h2 className="text-3xl font-black mb-6">Finalizar Compra</h2>
             
-            {/* Indicador de Pasos */}
+            {/* Pasos Visuales */}
             <div className="flex items-center gap-4 mb-8 text-sm font-bold text-gray-400">
-              <span className={step === 1 ? "text-black border-b-2 border-black pb-1" : ""}>1. Datos de Envío</span>
+              <span className={step === 1 ? "text-black border-b-2 border-black pb-1 transition-all" : "cursor-pointer"} onClick={() => setStep(1)}>
+                1. Datos de Envío
+              </span>
               <span>→</span>
-              <span className={step === 2 ? "text-black border-b-2 border-black pb-1" : ""}>2. Pago Seguro</span>
+              <span className={step === 2 ? "text-black border-b-2 border-black pb-1 transition-all" : ""}>
+                2. Pago Seguro
+              </span>
             </div>
           </div>
 
           {step === 1 ? (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
               <h3 className="text-xl font-bold mb-4">Información de Contacto</h3>
               <div className="grid grid-cols-1 gap-4">
                 <input 
@@ -171,19 +184,22 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <input 
                     name="address" value={formData.address} onChange={handleInputChange} 
-                    type="text" placeholder="Dirección / Calle" 
+                    type="text" placeholder="Dirección" 
                     className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
                   />
                   <input 
                     name="city" value={formData.city} onChange={handleInputChange} 
-                    type="text" placeholder="Ciudad / Comuna" 
+                    type="text" placeholder="Ciudad" 
                     className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
                   />
                 </div>
               </div>
               <button 
                 onClick={() => {
-                  if(!formData.fullName || !formData.address || !formData.email) return alert("Por favor completa los datos obligatorios.");
+                  if(!formData.fullName || !formData.address || !formData.email) {
+                    toast.warning("Datos incompletos", { description: "Por favor llena todos los campos obligatorios." });
+                    return;
+                  }
                   setStep(2);
                 }}
                 className="w-full mt-6 bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg"
@@ -192,11 +208,10 @@ export default function CheckoutPage() {
               </button>
             </div>
           ) : (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <h3 className="text-xl font-bold mb-4">Método de Pago</h3>
               
-              {/* Tarjeta WebPay Plus Seleccionada */}
-              <div className="p-4 border-2 border-blue-600 bg-blue-50/50 rounded-xl flex items-center justify-between cursor-pointer transition-all">
+              <div className="p-4 border-2 border-blue-600 bg-blue-50/50 rounded-xl flex items-center justify-between cursor-pointer transition-all hover:bg-blue-100/50">
                 <div className="flex items-center gap-4">
                   <span className="text-3xl">💳</span>
                   <div>
@@ -206,19 +221,13 @@ export default function CheckoutPage() {
                 </div>
                 <div className="w-5 h-5 rounded-full bg-blue-600 border-[3px] border-white shadow-sm ring-1 ring-blue-200"></div>
               </div>
-              
-              {/* Opción Deshabilitada (Ejemplo) */}
-              <div className="p-4 border border-gray-100 rounded-xl flex items-center gap-4 opacity-50 cursor-not-allowed grayscale">
-                <span className="text-3xl">🏛️</span>
-                <span className="font-bold text-gray-400">Transferencia Bancaria</span>
-              </div>
 
               <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 text-sm space-y-2">
                  <p className="font-bold text-gray-700 flex items-center gap-2">
                     🔒 Transacción Segura
                  </p>
                  <p className="text-gray-500 leading-relaxed">
-                    Serás redirigido al sitio oficial de Transbank para completar tu pago de forma segura. No guardamos los datos de tu tarjeta.
+                    Serás redirigido al sitio oficial de Transbank. Nosotros no almacenamos los datos de tu tarjeta.
                  </p>
               </div>
 
@@ -256,25 +265,25 @@ export default function CheckoutPage() {
             <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {items.map((item) => (
                 <div key={item.id} className="flex gap-4 items-center group">
-                  <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100">
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100">
                     <img 
                       src={item.image} 
                       alt={item.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 text-sm">
                     <p className="font-bold text-gray-900 line-clamp-2 leading-tight mb-1">{item.title}</p>
                     <p className="text-xs text-gray-500 font-medium bg-gray-100 w-fit px-2 py-1 rounded-md">
                       Cant: {item.quantity}
                     </p>
                   </div>
-                  <p className="font-bold text-gray-900">${(item.price * item.quantity).toLocaleString("es-CL")}</p>
+                  <p className="font-bold text-gray-900 text-sm">${(item.price * item.quantity).toLocaleString("es-CL")}</p>
                 </div>
               ))}
             </div>
             
-            <div className="border-t border-gray-100 pt-6 space-y-3">
+            <div className="border-t border-gray-100 pt-6 space-y-3 text-sm">
               <div className="flex justify-between text-gray-500 font-medium">
                 <span>Subtotal</span>
                 <span>${cartTotal.toLocaleString("es-CL")}</span>

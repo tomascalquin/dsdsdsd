@@ -1,5 +1,4 @@
 import axios from 'axios';
-import CryptoJS from 'crypto-js';
 
 export interface WebPayCreateRequest {
   amount: number;
@@ -29,17 +28,20 @@ export interface WebPayConfirmResponse {
 class WebPayService {
   private commerceCode: string;
   private apiKey: string;
-  private integrationType: string;
   private baseUrl: string;
 
   constructor() {
-    // Configuración para entorno de integración (pruebas)
+    // 1. Priorizamos las variables de entorno, si no, usamos las OFICIALES DE PRUEBA
+    // Nota: Transbank tiene credenciales de integración fijas que son públicas.
     this.commerceCode = process.env.WEBPAY_COMMERCE_CODE || '597055555532';
-    this.apiKey = process.env.WEBPAY_API_KEY || '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D68D7A6DE266377B7B4B3EF3C950EDD38ED1F5E5BB54AAEB5B40DF11EDB694907457DE74CD35';
-    this.integrationType = process.env.WEBPAY_INTEGRATION_TYPE || 'TEST';
-    this.baseUrl = this.integrationType === 'TEST' 
-      ? 'https://webpay3gint.transbank.cl' 
-      : 'https://webpay3g.transbank.cl';
+    
+    // Esta es la API Key oficial de integración (revisada)
+    this.apiKey = process.env.WEBPAY_API_KEY || '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C';
+    
+    // URL Base (Test vs Producción)
+    this.baseUrl = (process.env.WEBPAY_ENV === 'PROD') 
+      ? 'https://webpay3g.transbank.cl' 
+      : 'https://webpay3gint.transbank.cl';
   }
 
   /**
@@ -47,27 +49,26 @@ class WebPayService {
    */
   async createTransaction(request: WebPayCreateRequest): Promise<WebPayCreateResponse> {
     try {
-      const endpoint = `${this.baseUrl}/rswebpaytransaction/api/webpay/v1.0/transactions`;
+      const endpoint = `${this.baseUrl}/rswebpaytransaction/api/webpay/v1.2/transactions`; // Actualizado a v1.2
       
       const body = {
         buy_order: request.orderId,
         session_id: `session_${Date.now()}`,
         amount: request.amount,
         return_url: request.returnUrl,
-        final_url: request.finalUrl
       };
 
-      console.log('WebPay Create Request:', body);
+      console.log('🔵 Iniciando Transacción WebPay:', body);
 
       const response = await axios.post(endpoint, body, {
         headers: {
           'Content-Type': 'application/json',
-          'TBK-API-KEY-SELF': this.apiKey,
-          'TBK-API-KEY-ID': this.commerceCode
+          'Tbk-Api-Key-Id': this.commerceCode,    // <--- NOMBRE CORREGIDO
+          'Tbk-Api-Key-Secret': this.apiKey       // <--- NOMBRE CORREGIDO
         }
       });
 
-      console.log('WebPay Create Response:', response.data);
+      console.log('🟢 Respuesta WebPay:', response.data);
 
       return {
         token: response.data.token,
@@ -75,9 +76,15 @@ class WebPayService {
       };
 
     } catch (error: any) {
-      console.error('Error creating WebPay transaction:', error.response?.data || error.message);
+      console.error('🔴 Error WebPay Create:', error.response?.data || error.message);
+      
+      // Si el error es 401, damos un mensaje más claro
+      if (error.response?.status === 401) {
+        return { error: 'Error de autorización con Transbank. Verifica las credenciales (API Key).' };
+      }
+
       return {
-        error: error.response?.data?.error_message || 'Error al crear transacción WebPay'
+        error: error.response?.data?.error_message || 'Error al iniciar pago con WebPay'
       };
     }
   }
@@ -87,17 +94,20 @@ class WebPayService {
    */
   async confirmTransaction(request: WebPayConfirmRequest): Promise<WebPayConfirmResponse> {
     try {
-      const endpoint = `${this.baseUrl}/rswebpaytransaction/api/webpay/v1.0/transactions/${request.token}`;
+      // Actualizado a v1.2
+      const endpoint = `${this.baseUrl}/rswebpaytransaction/api/webpay/v1.2/transactions/${request.token}`;
+
+      console.log('🔵 Confirmando Transacción:', request.token);
 
       const response = await axios.put(endpoint, {}, {
         headers: {
           'Content-Type': 'application/json',
-          'TBK-API-KEY-SELF': this.apiKey,
-          'TBK-API-KEY-ID': this.commerceCode
+          'Tbk-Api-Key-Id': this.commerceCode,    // <--- NOMBRE CORREGIDO
+          'Tbk-Api-Key-Secret': this.apiKey       // <--- NOMBRE CORREGIDO
         }
       });
 
-      console.log('WebPay Confirm Response:', response.data);
+      console.log('🟢 Transacción Confirmada:', response.data);
 
       return {
         status: response.data.status,
@@ -107,27 +117,15 @@ class WebPayService {
       };
 
     } catch (error: any) {
-      console.error('Error confirming WebPay transaction:', error.response?.data || error.message);
+      console.error('🔴 Error WebPay Confirm:', error.response?.data || error.message);
       return {
-        error: error.response?.data?.error_message || 'Error al confirmar transacción WebPay'
+        error: error.response?.data?.error_message || 'Error al confirmar pago'
       };
     }
   }
 
-  /**
-   * Genera un ID de orden único
-   */
-  generateOrderId(): string {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `ORDER_${timestamp}_${random}`;
-  }
-
-  /**
-   * Valida el formato del token WebPay
-   */
   validateToken(token: string): boolean {
-    return /^[a-f0-9]{64}$/i.test(token);
+    return token && token.length > 10; // Validación simple
   }
 }
 
