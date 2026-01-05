@@ -38,24 +38,26 @@ export default function CheckoutPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePayment = async () => {
+const handlePayment = async () => {
     setLoading(true);
 
     try {
-      // 1. Simular proceso de pago (Delay de 2 segundos)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // 2. Guardar orden en Supabase
+      // 1. Generar ID de orden único
+      const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      
+      // 2. Guardar orden en Supabase con estado pendiente
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
+          order_id: orderId,
           total: cartTotal,
           customer_email: formData.email,
-          customer_name: formData.fullName, // Columnas nuevas
+          customer_name: formData.fullName,
           phone: formData.phone,
           address: `${formData.address}, ${formData.city}`,
-          status: 'pagado',
-          user_id: user?.id || null // Vincula si existe usuario
+          status: 'pendiente',
+          user_id: user?.id || null,
+          payment_method: 'webpay'
         })
         .select()
         .single();
@@ -73,15 +75,38 @@ export default function CheckoutPage() {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // 4. Éxito
-      clearCart();
-      alert("¡Pago Exitoso! Tu pedido ha sido procesado.");
-      router.push("/"); 
+      // 4. Crear transacción WebPay
+      const webpayResponse = await fetch('/api/webpay/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: cartTotal,
+          orderId: orderId,
+          returnUrl: `${window.location.origin}/webpay/return`,
+          finalUrl: `${window.location.origin}/webpay/final`
+        }),
+      });
+
+      const webpayData = await webpayResponse.json();
+
+      if (webpayData.error) {
+        throw new Error(webpayData.error);
+      }
+
+      // 5. Actualizar orden con token de WebPay
+      await supabase
+        .from('orders')
+        .update({ webpay_token: webpayData.token })
+        .eq('id', order.id);
+
+      // 6. Redirigir a WebPay
+      window.location.href = webpayData.url;
 
     } catch (error: any) {
       console.error(error);
-      alert("Error al procesar el pedido: " + error.message);
-    } finally {
+      alert("Error al procesar el pago: " + error.message);
       setLoading(false);
     }
   };
@@ -144,13 +169,16 @@ export default function CheckoutPage() {
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6">
               <h3 className="text-xl font-bold mb-4">Método de Pago</h3>
               
-              {/* Simulación de Tarjeta */}
-              <div className="p-4 border-2 border-orange-500 bg-orange-50 rounded-xl flex items-center justify-between cursor-pointer">
+{/* WebPay Plus */}
+              <div className="p-4 border-2 border-blue-500 bg-blue-50 rounded-xl flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">💳</span>
-                  <span className="font-bold text-orange-900">Tarjeta de Crédito / Débito</span>
+                  <span className="text-2xl">🔒</span>
+                  <div>
+                    <span className="font-bold text-blue-900 block">WebPay Plus</span>
+                    <span className="text-xs text-blue-700">Pago seguro con Transbank</span>
+                  </div>
                 </div>
-                <div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-white shadow-sm"></div>
+                <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm"></div>
               </div>
               
               <div className="p-4 border border-gray-200 rounded-xl flex items-center gap-3 opacity-50 cursor-not-allowed">
@@ -158,12 +186,14 @@ export default function CheckoutPage() {
                 <span className="font-bold text-gray-500">Transferencia Bancaria</span>
               </div>
 
-              <div className="bg-gray-100 p-4 rounded-xl">
-                 <p className="text-xs text-gray-500 font-mono mb-2">DATOS DE TARJETA (Simulados)</p>
-                 <div className="flex gap-2">
-                    <input type="text" placeholder="0000 0000 0000 0000" className="flex-1 p-3 rounded-lg border text-sm" />
-                    <input type="text" placeholder="MM/YY" className="w-20 p-3 rounded-lg border text-sm" />
-                    <input type="text" placeholder="CVC" className="w-16 p-3 rounded-lg border text-sm" />
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                 <p className="text-xs text-blue-600 font-mono mb-2">🔐 PAGO SEGURO CON WEBPAY PLUS</p>
+                 <p className="text-xs text-blue-700">Serás redirigido al portal seguro de Transbank para completar tu pago. Acepta todas las tarjetas de crédito y débito.</p>
+                 <div className="flex gap-2 mt-3">
+                    <span className="text-xs bg-white px-2 py-1 rounded border border-gray-200">Visa</span>
+                    <span className="text-xs bg-white px-2 py-1 rounded border border-gray-200">Mastercard</span>
+                    <span className="text-xs bg-white px-2 py-1 rounded border border-gray-200">Redcompra</span>
+                    <span className="text-xs bg-white px-2 py-1 rounded border border-gray-200">American Express</span>
                  </div>
               </div>
 
@@ -171,12 +201,12 @@ export default function CheckoutPage() {
                 <button onClick={() => setStep(1)} className="flex-1 py-4 font-bold text-gray-500 hover:text-black">
                   Atrás
                 </button>
-                <button 
+<button 
                   onClick={handlePayment} 
                   disabled={loading}
-                  className="flex-[2] bg-orange-600 text-white py-4 rounded-xl font-bold hover:bg-orange-500 transition-all shadow-lg disabled:opacity-70"
+                  className="flex-[2] bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg disabled:opacity-70"
                 >
-                  {loading ? "Procesando pago..." : `Pagar $${cartTotal.toLocaleString("es-CL")}`}
+                  {loading ? "Redirigiendo a WebPay..." : `Pagar $${cartTotal.toLocaleString("es-CL")} con WebPay`}
                 </button>
               </div>
             </div>

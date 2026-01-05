@@ -1,99 +1,112 @@
-import { supabase } from "@/lib/supabase";
-import ProductCard from "@/components/ProductCard";
-import Link from "next/link";
+"use client"
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 
-export const revalidate = 0; // Esto asegura que siempre se muestren productos nuevos
+export default function AdminOrders() {
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default async function Home() {
-  // 1. Obtenemos los productos desde Supabase
-  const { data: products } = await supabase
-    .from('products')
-    .select(`id, title, price, slug, product_images ( url )`)
-    .limit(8);
+  useEffect(() => {
+    fetchOrders()
+  }, [])
+
+  async function fetchOrders() {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    if (data) setOrders(data)
+    setLoading(false)
+  }
+
+  async function updateStatus(id: string, newStatus: string) {
+    await supabase.from('orders').update({ status: newStatus }).eq('id', id)
+    fetchOrders()
+  }
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Cargando panel...</div>
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      
-      {/* --- HERO SECTION (BANNER PRINCIPAL) --- */}
-      <section className="relative bg-[#0f1115] text-white overflow-hidden py-24 lg:py-32">
-        {/* Fondo con ruido y gradientes para efecto Premium */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/20 blur-[120px] rounded-full pointer-events-none"></div>
-
-        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 text-center z-10">
-          <span className="inline-block py-1 px-3 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-bold tracking-[0.2em] uppercase mb-6 backdrop-blur-sm">
-            Tendencias Virales 2024
-          </span>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
-            DESCUBRE LO <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
-              EXTRAORDINARIO
-            </span>
-          </h1>
-          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 font-medium">
-            Seleccionamos los gadgets más innovadores de las redes sociales y los traemos directamente a tu puerta.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Link 
-              href="#catalogo" 
-              className="px-8 py-4 bg-white text-black rounded-full font-bold uppercase tracking-widest text-xs hover:bg-orange-500 hover:text-white transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
-            >
-              Ver Colección
-            </Link>
-          </div>
+    <div className="p-6 bg-gray-50 min-h-screen text-black">
+      {/* HEADER DEL ADMIN */}
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div>
+           <h1 className="text-3xl font-black">Panel de Control</h1>
+           <p className="text-gray-500">Gestiona tus pedidos y productos</p>
         </div>
-      </section>
-
-      {/* --- SECCIÓN DE CONFIANZA --- */}
-      <div className="bg-white border-b border-gray-100 py-12">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-3 gap-8 text-center divide-x divide-gray-100">
-          <div className="flex flex-col items-center">
-            <span className="text-3xl mb-2">🚀</span>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-800">Envío Rápido</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-3xl mb-2">⭐</span>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-800">+10k Clientes</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-3xl mb-2">🛡️</span>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-800">Garantía Total</span>
-          </div>
-        </div>
+        
+        {/* BOTÓN PARA AGREGAR PRODUCTO */}
+        <Link 
+          href="/admin/agregar-producto" 
+          className="bg-black text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all flex items-center gap-2"
+        >
+          <span>+</span> Agregar Nuevo Producto
+        </Link>
       </div>
 
-      {/* --- CATÁLOGO DE PRODUCTOS --- */}
-      <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24">
-        <div className="flex items-end justify-between mb-12">
-          <div>
-            <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tight">Lo más vendido</h2>
-            <div className="h-1 w-20 bg-orange-500 mt-3 rounded-full"></div>
-          </div>
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100">
+           <h2 className="font-bold text-xl">Últimos Pedidos</h2>
         </div>
-
-        {/* Grilla de productos usando tu componente ProductCard */}
-        {!products || products.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <p>Cargando tendencias...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((product: any) => (
-              <ProductCard 
-                key={product.id}
-                id={product.id}
-                // Usamos "title" o "name" para asegurar compatibilidad con tu base de datos
-                title={product.title || product.name} 
-                price={product.price}
-                // Si hay imágenes en el array usamos la primera, sino el campo image directo
-                image={product.product_images?.[0]?.url || product.image || "/placeholder.png"}
-                slug={product.slug}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="p-4">Cliente</th>
+                <th className="p-4">Contacto</th>
+                <th className="p-4">Total</th>
+                <th className="p-4">Estado</th>
+                <th className="p-4">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="p-4">
+                    <p className="font-bold text-gray-900">{order.customer_name || "Anónimo"}</p>
+                    <p className="text-xs text-gray-500">{order.address}, {order.city}</p>
+                  </td>
+                  <td className="p-4">
+                    <p className="text-sm">{order.customer_email}</p>
+                    <p className="text-sm text-gray-500">{order.phone}</p>
+                  </td>
+                  <td className="p-4 font-mono font-bold">
+                    ${order.total?.toLocaleString('es-CL')}
+                  </td>
+                  <td className="p-4">
+                    <select 
+                      value={order.status} 
+                      onChange={(e) => updateStatus(order.id, e.target.value)}
+                      className={`text-xs font-bold px-2 py-1 rounded-full border-0 cursor-pointer ${
+                        order.status === 'pagado' ? 'bg-green-100 text-green-700' :
+                        order.status === 'pendiente' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <option value="pendiente">Pendiente</option>
+                      <option value="pagado">Pagado</option>
+                      <option value="enviado">Enviado</option>
+                    </select>
+                  </td>
+                  <td className="p-4">
+                     {order.phone && (
+                        <a href={`https://wa.me/${order.phone}`} target="_blank" className="text-green-600 hover:underline text-sm font-bold flex items-center gap-1">
+                          WhatsApp ↗
+                        </a>
+                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {orders.length === 0 && (
+             <div className="p-10 text-center text-gray-400">No hay pedidos aún.</div>
+          )}
+        </div>
+      </div>
     </div>
-  );
+  )
 }

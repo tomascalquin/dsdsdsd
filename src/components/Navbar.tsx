@@ -16,10 +16,10 @@ export default function Navbar() {
         {/* LOGO */}
         <Link href="/" className="group flex items-center gap-2">
           <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-black text-xs group-hover:bg-orange-500 transition-colors">
-            C
+            DP
           </div>
           <span className="text-xl font-black tracking-tight text-gray-900">
-            CANTARITA
+            Drops Calquin
           </span>
         </Link>
         
