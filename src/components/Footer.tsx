@@ -52,7 +52,7 @@ export default function Footer() {
               <span>📍</span> Santiago, Chile
             </li>
             <li className="flex gap-3">
-              <span>📧</span> contacto@dropc.cl
+              <span>📧</span> contacto@dropsc.store
             </li>
             <li className="flex gap-3">
               <span>📱</span> +56 9 6612 8934 

@@ -26,7 +26,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
         
-        {/* LOGO NUEVO: dC / DROPSC */}
+        {/* LOGO: DROPSC */}
         <Link href="/" className="group flex items-center gap-2 shrink-0">
           <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-black text-sm group-hover:bg-orange-500 transition-colors tracking-tighter">
             dC
@@ -64,13 +64,18 @@ export default function Navbar() {
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 mt-4 w-48 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
-                  <Link href="/perfil" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                    📦 Mis Pedidos
+                <div className="absolute right-0 mt-4 w-56 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden py-2 animate-in fade-in zoom-in-95 duration-200">
+                  {/* ENLACE ACTUALIZADO A MI CUENTA */}
+                  <Link 
+                    href="/perfil" 
+                    onClick={() => setMenuOpen(false)} 
+                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 font-medium"
+                  >
+                    👤 Mi Cuenta
                   </Link>
                   <button 
                     onClick={() => { signOut(); setMenuOpen(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
+                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-medium border-t border-gray-100"
                   >
                     Cerrar Sesión
                   </button>

@@ -47,10 +47,10 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 text-center z-10">
           <span className="inline-block py-1 px-3 rounded-full bg-white/10 border border-white/10 text-orange-400 text-xs font-bold tracking-[0.2em] uppercase mb-6 backdrop-blur-md">
-            New Collection 2024
+            New Collection 2026
           </span>
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.9]">
-            DROPSC <br />
+            dropsC <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
               STORE
             </span>

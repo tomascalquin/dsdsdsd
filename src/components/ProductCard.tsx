@@ -1,38 +1,64 @@
-import Image from 'next/image'; 
-import Link from 'next/link';
+import Link from "next/link";
+import WishlistButton from "./WishlistButton"; // Asegúrate de haber creado este componente antes
 
-// 1. Definimos la "forma" que deben tener los datos. 
-// Si intentas pasar un precio que sea texto, TS te gritará (eso es bueno).
-interface ProductProps {
+interface ProductCardProps {
   id: number;
   title: string;
   price: number;
   image: string;
   slug: string;
+  category?: string; // Opcional, por si quieres mostrarla
 }
 
-export default function ProductCard({ title, price, image, slug }: ProductProps) {
+export default function ProductCard({ id, title, price, image, slug, category }: ProductCardProps) {
   return (
-    <Link href={`/producto/${slug}`} className="group block">
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-100">
-        {/* Next.js exige width y height para evitar saltos de carga */}
-        <Image 
-          src={image} 
-          alt={title}
-          width={500}
-          height={500}
-          className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-        />
-      </div>
-      <div className="mt-4 flex justify-between">
-        <div>
-          <h3 className="text-sm text-gray-700 font-medium">
-            {title}
-          </h3>
-          <p className="mt-1 text-sm text-gray-500"></p>
+    <div className="group relative flex flex-col gap-3">
+      
+      {/* IMAGEN DEL PRODUCTO */}
+      <div className="relative aspect-square bg-gray-100 rounded-2xl overflow-hidden border border-gray-100 shadow-sm transition-all duration-300 group-hover:shadow-md">
+        
+        {/* Link principal al detalle */}
+        <Link href={`/producto/${slug}`} className="block w-full h-full">
+          <img
+            src={image || "/placeholder.png"}
+            alt={title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        </Link>
+
+        {/* Botón de Favoritos (Flotante) */}
+        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-sm">
+            <WishlistButton productId={id} />
+          </div>
         </div>
-        <p className="text-sm font-bold text-gray-900">${price.toLocaleString('es-CL')}</p>
+
+        {/* Etiqueta Opcional (Ej: Nuevo o Categoría) */}
+        {category && (
+          <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-gray-800 pointer-events-none">
+            {category}
+          </div>
+        )}
       </div>
-    </Link>
+
+      {/* INFORMACIÓN */}
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex-1">
+          <Link href={`/producto/${slug}`}>
+            <h3 className="font-bold text-gray-900 text-sm leading-tight group-hover:text-orange-600 transition-colors line-clamp-2">
+              {title}
+            </h3>
+          </Link>
+          <p className="text-gray-500 text-xs mt-1">Envío Gratis</p>
+        </div>
+        
+        <div className="text-right">
+          <span className="block font-black text-gray-900 text-lg">
+            ${price.toLocaleString("es-CL")}
+          </span>
+        </div>
+      </div>
+      
+    </div>
   );
 }
