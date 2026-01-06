@@ -1,26 +1,107 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* -------------------------------------------------------------------------- */
+/* 1. ESTILOS BASE (Configuración Global)                                     */
+/* -------------------------------------------------------------------------- */
+@layer base {
+  /* Desplazamiento suave al hacer clic en enlaces internos (anclas) */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    background-color: #f9fafb; /* Fondo gris muy suave (casi blanco) */
+    color: #111;               /* Texto casi negro (más suave que #000) */
+    
+    /* Truco de Apple para que la tipografía se vea nítida y delgada */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* PERSONALIZACIÓN DE LA BARRA DE SCROLL (Scrollbar) */
+  /* Hace que la barra sea delgada y elegante en Chrome/Edge/Safari */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px; /* Para scroll horizontal */
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent; 
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d1d5db; /* Color de la barra (gris suave) */
+    border-radius: 10px; /* Bordes redondos */
+    border: 2px solid transparent; /* Espacio para que respire */
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af; /* Más oscuro al pasar el mouse */
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* COLOR DE SELECCIÓN DE TEXTO */
+  /* Cuando el usuario selecciona texto, se pinta de tu color naranja */
+  ::selection {
+    background-color: #f97316; 
+    color: white;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* -------------------------------------------------------------------------- */
+/* 2. COMPONENTES PERSONALIZADOS                                              */
+/* -------------------------------------------------------------------------- */
+@layer components {
+  /* EFECTO DE CARGA DE IMÁGENES (Blur-Up) */
+  /* .img-loading: Se ve borrosa y con un poco de zoom */
+  .img-loading {
+    filter: blur(20px);
+    transform: scale(1.1);
+  }
+  /* .img-loaded: Se enfoca y vuelve a tamaño normal suavemente */
+  .img-loaded {
+    filter: blur(0);
+    transform: scale(1);
+    transition: filter 0.7s ease-out, transform 0.7s ease-out;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 3. UTILIDADES (Clases extra para cosas específicas)                        */
+/* -------------------------------------------------------------------------- */
+@layer utilities {
+  /* Ocultar barra de scroll pero permitir deslizar (Para categorías en móvil) */
+  .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+  }
+  .scrollbar-hide {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+  }
+  
+  /* Animación lenta para el fondo degradado del Home */
+  .animate-spin-slow {
+    animation: spin-slow 20s linear infinite;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. EFECTOS GLOBALES DE INTERACCIÓN                                         */
+/* -------------------------------------------------------------------------- */
+
+/* EFECTO BOTÓN TÁCTIL (Clicky Buttons) */
+/* Hace que CUALQUIER botón (<button>) se encoja un 4% al presionarlo */
+button:active {
+  transform: scale(0.96);
+  transition: transform 0.05s ease-in-out;
+}
+
+/* Definición de la animación de rotación */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }

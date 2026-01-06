@@ -7,6 +7,7 @@ import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "sonner";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import MarqueeBanner from "@/components/MarqueeBanner";
 
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ["latin"],
@@ -28,7 +29,8 @@ export default function RootLayout({
       <body className={`${jakarta.className} antialiased bg-gray-50 text-slate-900`}>
         <AuthProvider>
           <CartProvider>
-            <Toaster position="top-center" richColors />
+            <Toaster position="top-center" richColors />  
+            <MarqueeBanner />
             <Navbar />
             <main className="min-h-screen flex flex-col">
               {children}
