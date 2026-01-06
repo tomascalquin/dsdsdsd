@@ -125,7 +125,8 @@ class WebPayService {
   }
 
   validateToken(token: string): boolean {
-    return token && token.length > 10; // Validación simple
+    // Usamos Boolean() para asegurar que SIEMPRE devuelva true o false
+    return Boolean(token && token.length > 10); 
   }
 }
 
