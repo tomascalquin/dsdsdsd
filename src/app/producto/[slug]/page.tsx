@@ -1,172 +1,192 @@
-import { supabase } from "@/lib/supabase";
-import ProductActions from "@/components/ProductActions"; 
-import ProductGallery from "@/components/ProductGallery";
-import ProductReviews from "@/components/ProductReviews"; // <--- Importamos las reseñas
-import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
-export const revalidate = 0; // Para que siempre muestre datos frescos (stock real)
+// Componentes (Asegúrate de que existan en tu carpeta components)
+import ProductGallery from "@/components/ProductGallery";
+import ProductActions from "@/components/ProductActions"; 
+import ProductReviews from "@/components/ProductReviews";
 
-interface ProductPageProps {
+// Definimos el tipo de las Props (Requerido en Next.js 15/16)
+type Props = {
   params: Promise<{ slug: string }>;
-}
+};
 
-// 1. GENERACIÓN DE METADATOS SEO
-export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
-  const resolvedParams = await params;
+// ----------------------------------------------------------------------
+// 1. GENERACIÓN DE METADATOS (SEO para WhatsApp/Google)
+// ----------------------------------------------------------------------
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+
+  // Buscamos solo los datos necesarios para el SEO
   const { data: product } = await supabase
     .from("products")
-    .select(`title, description, product_images ( url, is_primary )`)
-    .eq("slug", resolvedParams.slug)
+    .select("title, description, price, product_images(url)")
+    .eq("slug", slug)
     .single();
 
-  if (!product) return { title: "Producto no encontrado" };
+  if (!product) {
+    return {
+      title: "Producto no encontrado | DropsC Store",
+    };
+  }
 
-  const mainImage = product.product_images?.find((img: any) => img.is_primary)?.url 
-    || product.product_images?.[0]?.url;
+  // Usamos la primera imagen o una por defecto
+  const imageUrl = product.product_images?.[0]?.url || "https://dropsc.store/hero-banner.png";
 
   return {
-    title: `${product.title} | DropsC Store`,
-    description: product.description?.slice(0, 160),
+    title: `${product.title} | Compra Online`,
+    description: `Consigue ${product.title} por $${product.price.toLocaleString("es-CL")}. Envío rápido a todo Chile.`,
     openGraph: {
-      images: [mainImage || ""],
       title: product.title,
-      description: product.description?.slice(0, 160),
+      description: product.description?.slice(0, 160) + "...",
+      url: `https://dropsc.store/producto/${slug}`,
+      siteName: "DropsC Store",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: product.title,
+        },
+      ],
+      locale: "es_CL",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.title,
+      description: `Precio oferta: $${product.price.toLocaleString("es-CL")}`,
+      images: [imageUrl],
     },
   };
 }
 
-// 2. PÁGINA PRINCIPAL DEL PRODUCTO
-export default async function ProductPage({ params }: ProductPageProps) {
-  const resolvedParams = await params;
-  const { slug } = resolvedParams;
+// ----------------------------------------------------------------------
+// 2. PÁGINA DEL PRODUCTO (Server Component)
+// ----------------------------------------------------------------------
+export default async function ProductPage({ params }: Props) {
+  const { slug } = await params;
 
-  // A. Obtener el producto principal
+  // Carga de datos completa del producto
   const { data: product } = await supabase
     .from("products")
-    .select(`*, product_images ( url, is_primary, media_type )`)
+    .select(`
+      *,
+      product_images (url, is_primary)
+    `)
     .eq("slug", slug)
     .single();
 
-  if (!product) return notFound();
+  // Si no existe, mandamos a la página 404
+  if (!product) {
+    notFound();
+  }
 
-  // B. Obtener Productos Relacionados (Misma categoría, distinto ID)
-  const { data: relatedProducts } = await supabase
-    .from("products")
-    .select(`id, title, price, slug, product_images ( url, is_primary )`)
-    .eq("category", product.category || 'General') 
-    .neq("id", product.id)
-    .limit(4);
+  // JSON-LD: Datos estructurados para Google Shopping
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    image: product.product_images?.[0]?.url,
+    description: product.description,
+    sku: product.id,
+    brand: {
+      "@type": "Brand",
+      name: "DropsC"
+    },
+    offers: {
+      "@type": "Offer",
+      url: `https://dropsc.store/producto/${slug}`,
+      priceCurrency: "CLP",
+      price: product.price,
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition"
+    }
+  };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-20">
-      {/* Spacer para el Navbar fijo */}
-      <div className="h-20"></div> 
+    <div className="min-h-screen bg-white pb-20">
+      {/* Script invisible para Google */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Breadcrumbs (Navegación) */}
-        <div className="text-sm text-gray-400 mb-8 flex gap-2 items-center">
-          <Link href="/" className="hover:text-black transition-colors">Inicio</Link> 
-          <span>/</span>
-          <span className="font-bold text-gray-500">{product.category || 'General'}</span>
-          <span>/</span>
-          <span className="text-gray-900 font-medium truncate">{product.title}</span>
-        </div>
+        {/* MIGAS DE PAN (Breadcrumbs) */}
+        <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
+          <Link href="/" className="hover:text-black hover:underline transition-colors">
+            Inicio
+          </Link>
+          <span className="mx-3 text-gray-300">/</span>
+          <Link href="/catalogo" className="hover:text-black hover:underline transition-colors">
+            Catálogo
+          </Link>
+          <span className="mx-3 text-gray-300">/</span>
+          <span className="font-medium text-black truncate max-w-[200px]">
+            {product.title}
+          </span>
+        </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
           
-          {/* COLUMNA IZQUIERDA: GALERÍA MULTIMEDIA */}
-          <div className="sticky top-24">
-            <ProductGallery product={product} />
+          {/* COLUMNA IZQUIERDA: Galería de Imágenes */}
+          <div className="relative">
+             {/* Pasamos las imágenes al componente cliente */}
+             <ProductGallery images={product.product_images || []} />
           </div>
 
-          {/* COLUMNA DERECHA: INFORMACIÓN */}
-          <div className="flex flex-col pt-4">
-            <span className="text-orange-600 font-bold tracking-widest text-xs uppercase mb-4">
-              {product.category || 'Colección 2024'}
-            </span>
-            
-            <h1 className="text-4xl md:text-5xl font-black text-gray-900 leading-[1.1] mb-6 tracking-tight">
+          {/* COLUMNA DERECHA: Información y Compra */}
+          <div className="flex flex-col">
+            <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 tracking-tight leading-tight">
               {product.title}
             </h1>
 
             <div className="flex items-center gap-4 mb-6">
-              <span className="text-4xl font-black text-gray-900">
-                ${product.price?.toLocaleString('es-CL')}
+              <span className="text-3xl font-bold text-gray-900">
+                ${product.price.toLocaleString("es-CL")}
               </span>
-              
-              {/* Lógica de Stock Visual */}
-              {product.stock > 0 && product.stock < 10 && (
-                 <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
-                   ¡Solo quedan {product.stock}!
-                 </span>
-              )}
-              {product.stock === 0 && (
-                 <span className="bg-gray-200 text-gray-500 px-3 py-1 rounded-full text-xs font-bold">
-                   Agotado
-                 </span>
-              )}
+              <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                Envío Gratis
+              </span>
             </div>
 
-            <div className="prose prose-lg text-gray-500 mb-10 leading-relaxed whitespace-pre-wrap">
-              {product.description}
+            <div className="prose prose-gray mb-8 text-gray-600 leading-relaxed">
+              <p>{product.description}</p>
             </div>
 
-            {/* Iconos de Confianza */}
-            <div className="grid grid-cols-3 gap-4 mb-8 border-y border-gray-200 py-6 text-center bg-white/50 rounded-xl">
-              <div><span className="text-2xl block mb-2">🚚</span><span className="text-[10px] font-bold uppercase text-gray-500">Envío Rápido</span></div>
-              <div className="border-l border-gray-200"><span className="text-2xl block mb-2">🛡️</span><span className="text-[10px] font-bold uppercase text-gray-500">Garantía</span></div>
-              <div className="border-l border-gray-200"><span className="text-2xl block mb-2">💳</span><span className="text-[10px] font-bold uppercase text-gray-500">Pago Seguro</span></div>
+            {/* Componente Interactivo de Botones (Carrito/Comprar) */}
+            <div className="mt-auto">
+               <ProductActions product={product} />
             </div>
-
-            {/* BOTONES DE COMPRA */}
-            {product.stock > 0 ? (
-              <ProductActions product={product} />
-            ) : (
-              <button disabled className="w-full bg-gray-200 text-gray-400 py-4 rounded-xl font-bold cursor-not-allowed uppercase tracking-wider">
-                Sin Stock Disponible
-              </button>
-            )}
-
-            {/* SECCIÓN DE RESEÑAS (NUEVO) */}
-            <div id="reviews" className="mt-8">
-               <ProductReviews productId={product.id} />
+            
+            {/* Garantías o sellos de confianza */}
+            <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-gray-100">
+               <div className="text-center">
+                 <span className="text-2xl block mb-2">🔒</span>
+                 <p className="text-xs font-bold text-gray-500">Pago Seguro</p>
+               </div>
+               <div className="text-center">
+                 <span className="text-2xl block mb-2">🚚</span>
+                 <p className="text-xs font-bold text-gray-500">Envío Rápido</p>
+               </div>
+               <div className="text-center">
+                 <span className="text-2xl block mb-2">↩️</span>
+                 <p className="text-xs font-bold text-gray-500">Devolución</p>
+               </div>
             </div>
-
           </div>
         </div>
 
-        {/* SECCIÓN DE PRODUCTOS RELACIONADOS (NUEVO) */}
-        {relatedProducts && relatedProducts.length > 0 && (
-          <div className="mt-32 border-t border-gray-200 pt-16">
-            <h3 className="text-3xl font-black mb-8 tracking-tight">También te podría interesar</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {relatedProducts.map((rel: any) => {
-                 const relImage = rel.product_images?.find((img: any) => img.is_primary)?.url || rel.product_images?.[0]?.url || "/placeholder.png";
-                 return (
-                   <Link key={rel.id} href={`/producto/${rel.slug}`} className="group block bg-white p-4 rounded-2xl border border-transparent hover:border-gray-200 hover:shadow-xl transition-all duration-300">
-                     <div className="aspect-square bg-gray-100 rounded-xl overflow-hidden mb-4 relative">
-                       <img 
-                         src={relImage} 
-                         alt={rel.title} 
-                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                       />
-                       <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded-md text-[10px] font-bold shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                         VER
-                       </div>
-                     </div>
-                     <h4 className="font-bold text-gray-900 truncate mb-1 group-hover:text-orange-600 transition-colors">{rel.title}</h4>
-                     <p className="text-gray-500 font-bold text-sm">${rel.price.toLocaleString('es-CL')}</p>
-                   </Link>
-                 )
-              })}
-            </div>
-          </div>
-        )}
+        {/* SECCIÓN INFERIOR: Reseñas */}
+        <div className="mt-24 border-t border-gray-100 pt-16">
+          <ProductReviews productId={product.id} />
+        </div>
 
-      </main>
+      </div>
     </div>
   );
 }

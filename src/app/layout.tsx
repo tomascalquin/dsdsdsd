@@ -15,7 +15,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "DropsC | Store", // <--- CAMBIO AQUÍ
+  title: "DropsC | Store",
   description: "Tienda oficial DropsC",
 };
 
@@ -26,7 +26,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${jakarta.className} antialiased bg-gray-50 text-slate-900`}>
+      {/* CORRECCIÓN AQUÍ: Agregamos 'overflow-x-hidden' al final de la clase */}
+      <body className={`${jakarta.className} antialiased bg-gray-50 text-slate-900 overflow-x-hidden`}>
         <AuthProvider>
           <CartProvider>
             <Toaster position="top-center" richColors />  

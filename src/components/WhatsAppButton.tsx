@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 export default function WhatsAppButton() {
-  const phoneNumber = "56912345678"; // <--- CAMBIA ESTO POR TU NÚMERO REAL
+  const phoneNumber = "56966128934"; // <--- CAMBIA ESTO POR TU NÚMERO REAL
   const message = "Hola DropsC, me interesa un producto...";
 
   return (
