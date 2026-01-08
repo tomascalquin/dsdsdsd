@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "sonner";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import MarqueeBanner from "@/components/MarqueeBanner";
+import CartSidebar from "@/components/CartSidebar";
 
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ["latin"],
@@ -29,7 +30,8 @@ export default function RootLayout({
       {/* CORRECCIÓN AQUÍ: Agregamos 'overflow-x-hidden' al final de la clase */}
       <body className={`${jakarta.className} antialiased bg-gray-50 text-slate-900 overflow-x-hidden`}>
         <AuthProvider>
-          <CartProvider>
+          <CartProvider> 
+            <CartSidebar />
             <Toaster position="top-center" richColors />  
             <MarqueeBanner />
             <Navbar />

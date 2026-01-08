@@ -1,101 +1,86 @@
-"use client"; 
+"use client";
+
 import Link from "next/link";
-import { useCart } from "@/context/CartContext";
-import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation"; // Para poder viajar al buscar
+import { useCart } from "@/context/CartContext";
 
 export default function Navbar() {
-  const { cartCount } = useCart();
-  const { user, signOut } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { openCart, cart } = useCart();
   
-  // ESTADO PARA BÚSQUEDA
-  const [searchTerm, setSearchTerm] = useState("");
+  // Lógica del Buscador
+  const [query, setQuery] = useState("");
   const router = useRouter();
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      router.push(`/buscar?q=${encodeURIComponent(searchTerm)}`);
-      setSearchTerm(""); 
+    e.preventDefault(); // Evita que la página se recargue
+    if (query.trim()) {
+      // Redirigimos a la página de búsqueda con lo que escribió el usuario
+      router.push(`/buscar?q=${encodeURIComponent(query)}`);
+      setIsMobileMenuOpen(false); // Cerramos menú si estaba abierto
     }
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
-        
-        {/* LOGO: DROPSC */}
-        <Link href="/" className="group flex items-center gap-2 shrink-0">
-          <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center text-white font-black text-sm group-hover:bg-orange-500 transition-colors tracking-tighter">
-            dC
-          </div>
-          <span className="text-xl font-black tracking-tighter text-gray-900 hidden sm:block">
-            dropsC
-          </span>
-        </Link>
-        
-        {/* BUSCADOR */}
-        <form onSubmit={handleSearch} className="flex-1 max-w-md hidden md:block relative">
-          <input 
-            type="text" 
-            placeholder="Buscar en DropsC..." 
-            className="w-full bg-gray-100 border-0 rounded-full py-2 pl-4 pr-10 text-sm focus:ring-2 focus:ring-black focus:bg-white transition-all outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black">
-            🔍
-          </button>
-        </form>
-        
-        {/* DERECHA (Login + Carrito) */}
-        <div className="flex items-center gap-6 shrink-0">
+    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-20 gap-4">
           
-          {user ? (
-            <div className="relative">
-              <button 
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="flex items-center gap-2 text-sm font-bold hover:text-orange-600 transition-colors"
-              >
-                <span>Hola, {user.email?.split('@')[0]}</span>
-                <span className="text-xs">▼</span>
-              </button>
-
-              {menuOpen && (
-                <div className="absolute right-0 mt-4 w-56 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden py-2 animate-in fade-in zoom-in-95 duration-200">
-                  {/* ENLACE ACTUALIZADO A MI CUENTA */}
-                  <Link 
-                    href="/perfil" 
-                    onClick={() => setMenuOpen(false)} 
-                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 font-medium"
-                  >
-                    👤 Mi Cuenta
-                  </Link>
-                  <button 
-                    onClick={() => { signOut(); setMenuOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-medium border-t border-gray-100"
-                  >
-                    Cerrar Sesión
-                  </button>
-                </div>
-              )}
+          {/* 1. LOGO */}
+          <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
+            <div className="bg-black text-white font-black text-xl p-2 rounded-lg group-hover:bg-orange-600 transition-colors">
+              dC
             </div>
-          ) : (
-            <div className="flex items-center gap-4 text-sm font-bold">
-              <Link href="/login" className="hover:text-orange-600 transition-colors">Ingresar</Link>
-            </div>
-          )}
-
-          <Link href="/carrito" className="relative p-2 text-gray-600 hover:text-black transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
-                {cartCount}
-              </span>
-            )}
+            <span className="font-bold text-xl tracking-tight text-gray-900 hidden sm:block">
+              dropsC<span className="text-orange-600">.</span>
+            </span>
           </Link>
+
+          {/* 2. BARRA DE BÚSQUEDA (NUEVO) */}
+          <form onSubmit={handleSearch} className="flex-1 max-w-md relative group">
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full bg-gray-100/50 border border-transparent focus:bg-white focus:border-gray-200 focus:ring-2 focus:ring-black/5 rounded-full py-2.5 pl-10 pr-4 text-sm outline-none transition-all"
+            />
+            {/* Ícono Lupa dentro del input */}
+            <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-600">
+               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+               </svg>
+            </button>
+          </form>
+
+          {/* 3. ICONOS DE ACCIÓN */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            
+            {/* Link Admin (Solo Desktop) */}
+            
+            {/* Perfil */}
+            <Link href="/perfil" className="p-2 text-gray-400 hover:text-black transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+            </Link>
+
+            {/* Carrito */}
+            <button 
+              onClick={openCart} 
+              className="relative p-2 text-gray-400 hover:text-black transition-colors group"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 group-hover:scale-110 transition-transform">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+              {cart.length > 0 && (
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-orange-600 rounded-full animate-bounce">
+                  {cart.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </nav>

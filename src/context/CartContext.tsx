@@ -1,138 +1,83 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { toast } from "sonner"; // Asegúrate de haber instalado 'sonner'
+import { createContext, useContext, useEffect, useState } from "react";
+import { toast } from "sonner";
 
-export interface CartItem {
-  id: number;
+interface Product {
+  id: string;
   title: string;
   price: number;
   image: string;
-  quantity: number;
+  quantity: number; // Agregamos cantidad
 }
 
 interface CartContextType {
-  items: CartItem[];
-  cartCount: number;
-  cartTotal: number;
+  cart: Product[];
   addToCart: (product: any) => void;
-  removeFromCart: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  clearCart: () => void;
+  removeFromCart: (id: string) => void;
+  total: number;
+  isCartOpen: boolean;      // NUEVO
+  openCart: () => void;     // NUEVO
+  closeCart: () => void;    // NUEVO
 }
 
 const CartContext = createContext<CartContextType>({
-  items: [],
-  cartCount: 0,
-  cartTotal: 0,
+  cart: [],
   addToCart: () => {},
   removeFromCart: () => {},
-  updateQuantity: () => {},
-  clearCart: () => {},
+  total: 0,
+  isCartOpen: false,
+  openCart: () => {},
+  closeCart: () => {},
 });
 
-export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [mounted, setMounted] = useState(false);
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const [cart, setCart] = useState<Product[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false); // Estado del menú lateral
 
-  // 1. Cargar del localStorage al iniciar (Solo en el cliente)
+  // Cargar carrito del localStorage al iniciar
   useEffect(() => {
-    setMounted(true);
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (error) {
-        console.error("Error al cargar el carrito:", error);
-      }
-    }
+    const savedCart = localStorage.getItem("dropsc_cart");
+    if (savedCart) setCart(JSON.parse(savedCart));
   }, []);
 
-  // 2. Guardar en localStorage cada vez que cambia el carrito
+  // Guardar en localStorage cada vez que cambia
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("cart", JSON.stringify(items));
-    }
-  }, [items, mounted]);
-
-  // --- FUNCIONES ---
+    localStorage.setItem("dropsc_cart", JSON.stringify(cart));
+  }, [cart]);
 
   const addToCart = (product: any) => {
-    setItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === product.id);
-      
-      if (existingItem) {
-        // Si ya existe, aumentamos la cantidad
-        toast.success(`+1 ${product.title}`, { position: 'bottom-center' });
-        return prevItems.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+    setCart((prev) => {
+      // Si ya existe, no lo duplicamos (o podrías sumar cantidad)
+      const exists = prev.find((item) => item.id === product.id);
+      if (exists) {
+        toast.info("Este producto ya está en el carrito");
+        setIsCartOpen(true); // Abrimos el carrito para que lo vea
+        return prev;
       }
-      
-      // Si es nuevo, lo agregamos
-      // Buscamos la mejor imagen disponible
-      const mainImage = product.product_images?.find((img: any) => img.is_primary)?.url 
-        || product.product_images?.[0]?.url 
-        || product.image 
-        || "/placeholder.png";
-
-      toast.success(`Agregado al carrito: ${product.title}`);
-      
-      return [...prevItems, {
-        id: product.id,
-        title: product.title,
-        price: product.price,
-        image: mainImage,
-        quantity: 1
-      }];
+      toast.success("Agregado al carrito");
+      setIsCartOpen(true); // Abrimos el carrito automáticamente al comprar
+      return [...prev, { ...product, quantity: 1, image: product.image || product.product_images?.[0]?.url }];
     });
   };
 
-  const removeFromCart = (id: number) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  const removeFromCart = (id: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
     toast.error("Producto eliminado");
   };
 
-  // ESTA FUNCIÓN ES LA CLAVE PARA QUE LOS BOTONES + Y - FUNCIONEN
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity < 1) {
-      removeFromCart(id); // Si baja a 0, lo borramos
-      return;
-    }
-
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const clearCart = () => {
-    setItems([]);
-    localStorage.removeItem("cart");
-  };
-
-  // Cálculos automáticos
-  const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
-  const cartTotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-  // Evitar renderizar en el servidor para prevenir errores de hidratación
-  if (!mounted) return null;
+  const total = cart.reduce((acc, item) => acc + item.price, 0);
 
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        cartCount,
-        cartTotal,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-      }}
-    >
+    <CartContext.Provider value={{ 
+      cart, 
+      addToCart, 
+      removeFromCart, 
+      total,
+      isCartOpen, 
+      openCart: () => setIsCartOpen(true),
+      closeCart: () => setIsCartOpen(false)
+    }}>
       {children}
     </CartContext.Provider>
   );
