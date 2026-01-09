@@ -1,305 +1,265 @@
 "use client";
 
-import { useCart } from "@/context/CartContext";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { toast } from "sonner"; // <--- Importamos las notificaciones
+import { useCart } from "@/context/CartContext";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import Link from "next/link";
 
 export default function CheckoutPage() {
-  const { items, cartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  // ✅ CORRECCIÓN: Usamos las variables nuevas (cart, total, clearCart)
+  const { cart, total, clearCart } = useCart();
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Datos, 2: Pago
-  
-  // Estado del Formulario
+  const [user, setUser] = useState<any>(null);
+
+  // Estados del Formulario
   const [formData, setFormData] = useState({
-    fullName: "",
-    email: user?.email || "",
-    phone: "",
+    email: "",
+    firstName: "",
+    lastName: "",
     address: "",
+    apartment: "",
     city: "",
+    region: "",
+    phone: "",
   });
 
-  // Actualizar email si el usuario se loguea después
+  // Cargar usuario al inicio para autocompletar email
   useEffect(() => {
-    if (user?.email) setFormData(prev => ({ ...prev, email: user.email! }));
-  }, [user]);
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        setFormData(prev => ({ ...prev, email: user.email || "" }));
+      }
+    };
+    getUser();
+  }, []);
 
-  // Si no hay items, volver al home con un diseño amigable
-  if (items.length === 0) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-10 text-center">
-        <p className="text-xl mb-4 text-gray-600">Tu carrito está vacío.</p> 
-        <button 
-          onClick={() => router.push("/")} 
-          className="px-6 py-3 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-all"
-        >
-          Volver a la tienda
-        </button>
-      </div>
-    );
-  }
+  // Redirigir si el carrito está vacío
+  useEffect(() => {
+    if (cart.length === 0) {
+      router.push("/carrito");
+    }
+  }, [cart, router]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePayment = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    const toastId = toast.loading("Iniciando pago seguro..."); // Feedback inmediato
 
     try {
-      // 1. Generar ID de orden único y legible (Ej: ORDER_171562...)
-      const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      
-      // 2. Guardar orden en Supabase (Estado pendiente)
-      // Nota: Usamos 'user_id' si existe, si no, queda como compra de invitado (null)
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
+      if (!user) {
+        toast.error("Por favor inicia sesión para continuar");
+        router.push("/login?redirect=/checkout");
+        return;
+      }
+
+      // 1. Guardar la orden en Supabase
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
         .insert({
-          order_id: orderId,
-          total: cartTotal,
-          customer_email: formData.email,
-          customer_name: formData.fullName,
-          phone: formData.phone,
-          address: `${formData.address}, ${formData.city}`,
-          status: 'pendiente',
-          payment_status: 'pending',
-          payment_method: 'webpay',
-          user_id: user?.id || null 
+          user_id: user.id,
+          total_amount: total,
+          status: "pending", // Estado inicial
+          shipping_address: `${formData.address}, ${formData.apartment}, ${formData.city}, ${formData.region}`,
+          contact_phone: formData.phone,
+          items: cart // Guardamos el snapshot de los productos
         })
         .select()
         .single();
 
-      if (orderError) throw new Error(`Error BD Orden: ${orderError.message}`);
+      if (orderError) throw orderError;
 
-      // 3. Guardar los items asociados a la orden
-      const orderItems = items.map((item) => ({
-        order_id: order.id, // Relación con el UUID de la orden
-        product_id: item.id,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw new Error(`Error BD Items: ${itemsError.message}`);
-
-      // 4. Crear transacción en WebPay (Llamada a tu API)
-      const webpayResponse = await fetch('/api/webpay/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: cartTotal,
-          orderId: orderId,
-          returnUrl: `${window.location.origin}/webpay/return`,
-          finalUrl: `${window.location.origin}/webpay/final`
-        }),
-      });
-
-      const webpayData = await webpayResponse.json();
-
-      if (webpayData.error) {
-        throw new Error(webpayData.error);
-      }
-
-      // 5. Actualizar la orden con el token recibido
-      await supabase
-        .from('orders')
-        .update({ webpay_token: webpayData.token })
-        .eq('id', order.id);
-
-      // 6. REDIRECCIÓN SEGURA (Formulario POST Oculto)
-      // Esto es obligatorio por Transbank. No usar window.location.href.
-      toast.dismiss(toastId); // Quitamos el loading
-      toast.success("Redirigiendo a WebPay...");
-
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = webpayData.url;
-
-      const tokenInput = document.createElement('input');
-      tokenInput.type = 'hidden';
-      tokenInput.name = 'token_ws';
-      tokenInput.value = webpayData.token;
-
-      form.appendChild(tokenInput);
-      document.body.appendChild(form);
-      form.submit(); // ¡Enviamos al usuario a pagar!
+      // 2. Éxito
+      toast.success("¡Orden creada exitosamente!");
+      clearCart(); // ✅ Función corregida para vaciar carrito
+      
+      // 3. Redirigir a perfil o página de éxito
+      router.push("/perfil");
 
     } catch (error: any) {
       console.error(error);
-      toast.dismiss(toastId);
-      toast.error("No se pudo iniciar el pago", {
-        description: error.message || "Verifica tu conexión e intenta de nuevo.",
-        duration: 5000,
-      });
+      toast.error("Hubo un error al procesar tu orden: " + error.message);
+    } finally {
       setLoading(false);
     }
   };
 
+  if (cart.length === 0) return null; // Evita flash mientras redirige
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* COLUMNA IZQUIERDA: FORMULARIO */}
-        <div className="space-y-8">
-          <div>
-            <h2 className="text-3xl font-black mb-6">Finalizar Compra</h2>
-            
-            {/* Pasos Visuales */}
-            <div className="flex items-center gap-4 mb-8 text-sm font-bold text-gray-400">
-              <span className={step === 1 ? "text-black border-b-2 border-black pb-1 transition-all" : "cursor-pointer"} onClick={() => setStep(1)}>
-                1. Datos de Envío
-              </span>
-              <span>→</span>
-              <span className={step === 2 ? "text-black border-b-2 border-black pb-1 transition-all" : ""}>
-                2. Pago Seguro
-              </span>
-            </div>
-          </div>
+        {/* Encabezado */}
+        <div className="flex items-center justify-center mb-10">
+           <span className="text-sm font-bold text-gray-400">Carrito</span>
+           <span className="mx-4 text-gray-300">/</span>
+           <span className="text-sm font-bold text-black">Checkout</span>
+           <span className="mx-4 text-gray-300">/</span>
+           <span className="text-sm font-bold text-gray-400">Pago</span>
+        </div>
 
-          {step === 1 ? (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
-              <h3 className="text-xl font-bold mb-4">Información de Contacto</h3>
-              <div className="grid grid-cols-1 gap-4">
-                <input 
-                  name="email" value={formData.email} onChange={handleInputChange} 
-                  type="email" placeholder="Correo Electrónico" 
-                  className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
-                />
-                <input 
-                  name="fullName" value={formData.fullName} onChange={handleInputChange} 
-                  type="text" placeholder="Nombre Completo" 
-                  className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
-                />
-                <input 
-                  name="phone" value={formData.phone} onChange={handleInputChange} 
-                  type="tel" placeholder="Teléfono Móvil" 
-                  className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <input 
-                    name="address" value={formData.address} onChange={handleInputChange} 
-                    type="text" placeholder="Dirección" 
-                    className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+          
+          {/* COLUMNA IZQUIERDA: Formulario */}
+          <div className="lg:col-span-7 space-y-8">
+            
+            {/* Sección Contacto */}
+            <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+              <h2 className="text-xl font-black text-gray-900 mb-6">Información de Contacto</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:bg-white transition-all outline-none"
+                    placeholder="tu@email.com"
+                    required
                   />
-                  <input 
-                    name="city" value={formData.city} onChange={handleInputChange} 
-                    type="text" placeholder="Ciudad" 
-                    className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all"
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:bg-white transition-all outline-none"
+                    placeholder="+56 9 1234 5678"
+                    required
                   />
                 </div>
               </div>
-              <button 
-                onClick={() => {
-                  if(!formData.fullName || !formData.address || !formData.email) {
-                    toast.warning("Datos incompletos", { description: "Por favor llena todos los campos obligatorios." });
-                    return;
-                  }
-                  setStep(2);
-                }}
-                className="w-full mt-6 bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg"
+            </section>
+
+            {/* Sección Dirección */}
+            <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+              <h2 className="text-xl font-black text-gray-900 mb-6">Dirección de Envío</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre</label>
+                  <input type="text" name="firstName" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" required />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Apellido</label>
+                  <input type="text" name="lastName" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" required />
+                </div>
+                
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dirección (Calle y Número)</label>
+                  <input type="text" name="address" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" placeholder="Av. Providencia 1234" required />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Depto / Oficina (Opcional)</label>
+                  <input type="text" name="apartment" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" placeholder="Torre B, Depto 204" />
+                </div>
+
+                <div className="col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Región</label>
+                  <select name="region" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" required>
+                    <option value="">Seleccionar...</option>
+                    <option value="RM">Metropolitana</option>
+                    <option value="V">Valparaíso</option>
+                    <option value="VIII">Biobío</option>
+                    {/* Agregar más regiones si es necesario */}
+                  </select>
+                </div>
+
+                <div className="col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ciudad / Comuna</label>
+                  <input type="text" name="city" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" placeholder="Providencia" required />
+                </div>
+              </div>
+            </section>
+
+             {/* Botón Pagar Móvil (Se oculta en PC) */}
+             <button 
+                onClick={handleSubmit}
+                disabled={loading}
+                className="lg:hidden w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50"
               >
-                Continuar al Pago
+                {loading ? "Procesando..." : "Confirmar Pedido"}
               </button>
-            </div>
-          ) : (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <h3 className="text-xl font-bold mb-4">Método de Pago</h3>
+          </div>
+
+          {/* COLUMNA DERECHA: Resumen (Sticky) */}
+          <div className="lg:col-span-5">
+            <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 lg:sticky lg:top-24">
+              <h3 className="text-xl font-black text-gray-900 mb-6">Resumen del Pedido</h3>
               
-              <div className="p-4 border-2 border-blue-600 bg-blue-50/50 rounded-xl flex items-center justify-between cursor-pointer transition-all hover:bg-blue-100/50">
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">💳</span>
-                  <div>
-                    <span className="font-black text-blue-900 block text-lg">WebPay Plus</span>
-                    <span className="text-sm text-blue-700 font-medium">Débito, Crédito y Prepago</span>
+              {/* Lista de productos scrollable si son muchos */}
+              <div className="max-h-[300px] overflow-y-auto pr-2 space-y-4 mb-6 custom-scrollbar">
+                {cart.map((item) => (
+                  <div key={item.id} className="flex gap-4 items-center">
+                    <div className="relative h-16 w-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                      <img src={item.image || "/placeholder.png"} alt={item.title} className="object-cover w-full h-full" />
+                      <span className="absolute top-0 right-0 bg-gray-500 text-white text-[10px] px-1.5 py-0.5 rounded-bl-lg font-bold">x1</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-gray-900 line-clamp-2">{item.title}</p>
+                      <p className="text-sm text-gray-500">${item.price.toLocaleString("es-CL")}</p>
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              {/* Cálculos */}
+              <div className="space-y-3 py-6 border-t border-gray-100">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal</span>
+                  <span>${total.toLocaleString("es-CL")}</span>
                 </div>
-                <div className="w-5 h-5 rounded-full bg-blue-600 border-[3px] border-white shadow-sm ring-1 ring-blue-200"></div>
-              </div>
-
-              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 text-sm space-y-2">
-                 <p className="font-bold text-gray-700 flex items-center gap-2">
-                    🔒 Transacción Segura
-                 </p>
-                 <p className="text-gray-500 leading-relaxed">
-                    Serás redirigido al sitio oficial de Transbank. Nosotros no almacenamos los datos de tu tarjeta.
-                 </p>
-              </div>
-
-              <div className="flex gap-4 pt-2">
-                <button 
-                  onClick={() => setStep(1)} 
-                  className="px-6 py-4 font-bold text-gray-500 hover:text-black transition-colors"
-                >
-                  Atrás
-                </button>
-                <button 
-                  onClick={handlePayment} 
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Procesando...
-                    </>
-                  ) : (
-                    `Pagar $${cartTotal.toLocaleString("es-CL")}`
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* COLUMNA DERECHA: RESUMEN DEL PEDIDO */}
-        <div className="h-fit sticky top-24">
-          <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100">
-            <h3 className="text-xl font-bold mb-6 text-gray-900">Resumen del Pedido</h3>
-            
-            <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {items.map((item) => (
-                <div key={item.id} className="flex gap-4 items-center group">
-                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100">
-                    <img 
-                      src={item.image} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                    />
-                  </div>
-                  <div className="flex-1 text-sm">
-                    <p className="font-bold text-gray-900 line-clamp-2 leading-tight mb-1">{item.title}</p>
-                    <p className="text-xs text-gray-500 font-medium bg-gray-100 w-fit px-2 py-1 rounded-md">
-                      Cant: {item.quantity}
-                    </p>
-                  </div>
-                  <p className="font-bold text-gray-900 text-sm">${(item.price * item.quantity).toLocaleString("es-CL")}</p>
+                <div className="flex justify-between text-gray-600">
+                  <span>Envío</span>
+                  <span className="text-green-600 font-bold">Gratis</span>
                 </div>
-              ))}
-            </div>
-            
-            <div className="border-t border-gray-100 pt-6 space-y-3 text-sm">
-              <div className="flex justify-between text-gray-500 font-medium">
-                <span>Subtotal</span>
-                <span>${cartTotal.toLocaleString("es-CL")}</span>
               </div>
-              <div className="flex justify-between text-gray-500 font-medium">
-                <span>Envío</span>
-                <span className="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded text-xs tracking-wider">GRATIS</span>
+
+              {/* Total Final */}
+              <div className="flex justify-between items-center pt-6 border-t border-gray-100 mb-8">
+                <span className="text-lg font-bold text-gray-900">Total a pagar</span>
+                <span className="text-3xl font-black text-gray-900">${total.toLocaleString("es-CL")}</span>
               </div>
-              <div className="flex justify-between text-3xl font-black text-gray-900 mt-6 pt-6 border-t border-dashed border-gray-200">
-                <span>Total</span>
-                <span>${cartTotal.toLocaleString("es-CL")}</span>
+
+              {/* Botón Pagar Desktop */}
+              <button 
+                onClick={handleSubmit}
+                disabled={loading}
+                className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-800 transition-all shadow-xl hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Procesando...
+                  </span>
+                ) : (
+                  "Confirmar y Pagar"
+                )}
+              </button>
+
+              <div className="mt-6 flex items-center justify-center gap-2 text-gray-400 text-xs">
+                 <span>🔒 Pago seguro SSL</span>
               </div>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );

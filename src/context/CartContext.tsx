@@ -8,23 +8,25 @@ interface Product {
   title: string;
   price: number;
   image: string;
-  quantity: number; // Agregamos cantidad
+  quantity: number;
 }
 
 interface CartContextType {
   cart: Product[];
   addToCart: (product: any) => void;
   removeFromCart: (id: string) => void;
+  clearCart: () => void; // <--- NUEVO: Función para vaciar
   total: number;
-  isCartOpen: boolean;      // NUEVO
-  openCart: () => void;     // NUEVO
-  closeCart: () => void;    // NUEVO
+  isCartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
 }
 
 const CartContext = createContext<CartContextType>({
   cart: [],
   addToCart: () => {},
   removeFromCart: () => {},
+  clearCart: () => {}, // <--- Default vacío
   total: 0,
   isCartOpen: false,
   openCart: () => {},
@@ -33,30 +35,27 @@ const CartContext = createContext<CartContextType>({
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<Product[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false); // Estado del menú lateral
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Cargar carrito del localStorage al iniciar
   useEffect(() => {
     const savedCart = localStorage.getItem("dropsc_cart");
     if (savedCart) setCart(JSON.parse(savedCart));
   }, []);
 
-  // Guardar en localStorage cada vez que cambia
   useEffect(() => {
     localStorage.setItem("dropsc_cart", JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = (product: any) => {
     setCart((prev) => {
-      // Si ya existe, no lo duplicamos (o podrías sumar cantidad)
       const exists = prev.find((item) => item.id === product.id);
       if (exists) {
-        toast.info("Este producto ya está en el carrito");
-        setIsCartOpen(true); // Abrimos el carrito para que lo vea
+        toast.info("Ya está en el carrito");
+        setIsCartOpen(true);
         return prev;
       }
       toast.success("Agregado al carrito");
-      setIsCartOpen(true); // Abrimos el carrito automáticamente al comprar
+      setIsCartOpen(true);
       return [...prev, { ...product, quantity: 1, image: product.image || product.product_images?.[0]?.url }];
     });
   };
@@ -66,6 +65,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     toast.error("Producto eliminado");
   };
 
+  // <--- NUEVA FUNCIÓN
+  const clearCart = () => {
+    setCart([]);
+    localStorage.removeItem("dropsc_cart");
+  };
+
   const total = cart.reduce((acc, item) => acc + item.price, 0);
 
   return (
@@ -73,6 +78,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       cart, 
       addToCart, 
       removeFromCart, 
+      clearCart, // <--- La exportamos
       total,
       isCartOpen, 
       openCart: () => setIsCartOpen(true),
