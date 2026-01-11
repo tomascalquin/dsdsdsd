@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import Link from "next/link";
 
 export default function CheckoutPage() {
-  // ✅ CORRECCIÓN: Usamos las variables nuevas (cart, total, clearCart)
   const { cart, total, clearCart } = useCart();
   const router = useRouter();
   
@@ -67,11 +66,12 @@ export default function CheckoutPage() {
         .from("orders")
         .insert({
           user_id: user.id,
-          total_amount: total,
-          status: "pending", // Estado inicial
+          // ✅ CORRECCIÓN AQUÍ: Usamos 'total' en lugar de 'total_amount'
+          total: total,
+          status: "pending", 
           shipping_address: `${formData.address}, ${formData.apartment}, ${formData.city}, ${formData.region}`,
           contact_phone: formData.phone,
-          items: cart // Guardamos el snapshot de los productos
+          items: cart 
         })
         .select()
         .single();
@@ -80,7 +80,7 @@ export default function CheckoutPage() {
 
       // 2. Éxito
       toast.success("¡Orden creada exitosamente!");
-      clearCart(); // ✅ Función corregida para vaciar carrito
+      clearCart(); 
       
       // 3. Redirigir a perfil o página de éxito
       router.push("/perfil");
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (cart.length === 0) return null; // Evita flash mientras redirige
+  if (cart.length === 0) return null; 
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -174,7 +174,6 @@ export default function CheckoutPage() {
                     <option value="RM">Metropolitana</option>
                     <option value="V">Valparaíso</option>
                     <option value="VIII">Biobío</option>
-                    {/* Agregar más regiones si es necesario */}
                   </select>
                 </div>
 
@@ -200,7 +199,6 @@ export default function CheckoutPage() {
             <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 lg:sticky lg:top-24">
               <h3 className="text-xl font-black text-gray-900 mb-6">Resumen del Pedido</h3>
               
-              {/* Lista de productos scrollable si son muchos */}
               <div className="max-h-[300px] overflow-y-auto pr-2 space-y-4 mb-6 custom-scrollbar">
                 {cart.map((item) => (
                   <div key={item.id} className="flex gap-4 items-center">
