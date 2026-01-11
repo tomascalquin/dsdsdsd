@@ -27,7 +27,7 @@ const comunasPorRegion: Record<string, string[]> = {
 };
 
 export default function CheckoutPage() {
-  const { cart, total } = useCart(); // No limpiamos el carrito aquí, solo al volver del pago exitoso
+  const { cart, total } = useCart();
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -95,7 +95,7 @@ export default function CheckoutPage() {
         .from("orders")
         .insert({
           user_id: user.id,
-          total: total, // ✅ CORREGIDO: coincide con columna 'total'
+          total: total,
           status: "pending",
           shipping_address: `${formData.address}, ${formData.apartment}, ${formData.city}, ${formData.region}`,
           contact_phone: formData.phone,
@@ -139,7 +139,7 @@ export default function CheckoutPage() {
       form.appendChild(tokenInput);
       document.body.appendChild(form);
       
-      form.submit(); // ¡Adios! Nos vamos a Transbank
+      form.submit(); 
 
     } catch (error: any) {
       console.error(error);
@@ -163,7 +163,8 @@ export default function CheckoutPage() {
            <span className="text-sm font-bold text-gray-400">Pago</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+        {/* 🟢 CAMBIO: Ahora todo está envuelto en <form onSubmit={handleSubmit}> */}
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
           
           {/* COLUMNA IZQUIERDA: Formulario */}
           <div className="lg:col-span-7 space-y-8">
@@ -269,9 +270,9 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-             {/* Botón Pagar Móvil */}
+             {/* 🟢 CAMBIO: Botón Pagar Móvil (Type Submit) */}
              <button 
-                onClick={handleSubmit}
+                type="submit" 
                 disabled={loading}
                 className="lg:hidden w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50"
               >
@@ -315,9 +316,9 @@ export default function CheckoutPage() {
                 <span className="text-3xl font-black text-gray-900">${total.toLocaleString("es-CL")}</span>
               </div>
 
-              {/* Botón Pagar Desktop */}
+              {/* 🟢 CAMBIO: Botón Pagar Desktop (Type Submit) */}
               <button 
-                onClick={handleSubmit}
+                type="submit" 
                 disabled={loading}
                 className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-800 transition-all shadow-xl hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -339,8 +340,9 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+        {/* Cerramos el Form aquí */}
+        </form>
 
-        </div>
       </div>
     </div>
   );
