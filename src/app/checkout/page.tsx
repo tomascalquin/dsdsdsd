@@ -6,8 +6,28 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
+// 🇨🇱 Base de datos de Regiones y Comunas de Chile
+const comunasPorRegion: Record<string, string[]> = {
+  "XV": ["Arica", "Camarones", "Putre", "General Lagos"],
+  "I": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Camiña", "Colchane", "Huara", "Pica"],
+  "II": ["Antofagasta", "Mejillones", "Sierra Gorda", "Taltal", "Calama", "Ollagüe", "San Pedro de Atacama", "Tocopilla", "María Elena"],
+  "III": ["Copiapó", "Caldera", "Tierra Amarilla", "Chañaral", "Diego de Almagro", "Vallenar", "Alto del Carmen", "Freirina", "Huasco"],
+  "IV": ["La Serena", "Coquimbo", "Andacollo", "La Higuera", "Paiguano", "Vicuña", "Illapel", "Canela", "Los Vilos", "Salamanca", "Ovalle", "Combarbalá", "Monte Patria", "Punitaqui", "Río Hurtado"],
+  "V": ["Valparaíso", "Casablanca", "Concón", "Juan Fernández", "Puchuncaví", "Quintero", "Viña del Mar", "Isla de Pascua", "Los Andes", "Calle Larga", "Rinconada", "San Esteban", "La Ligua", "Cabildo", "Papudo", "Petorca", "Zapallar", "Quillota", "Calera", "Hijuelas", "La Cruz", "Nogales", "San Antonio", "Algarrobo", "Cartagena", "El Quisco", "El Tabo", "Santo Domingo", "San Felipe", "Catemu", "Llaillay", "Panquehue", "Putaendo", "Santa María", "Quilpué", "Limache", "Olmué", "Villa Alemana"],
+  "RM": ["Cerrillos", "Cerro Navia", "Conchalí", "El Bosque", "Estación Central", "Huechuraba", "Independencia", "La Cisterna", "La Florida", "La Granja", "La Pintana", "La Reina", "Las Condes", "Lo Barnechea", "Lo Espejo", "Lo Prado", "Macul", "Maipú", "Ñuñoa", "Pedro Aguirre Cerda", "Peñalolén", "Providencia", "Pudahuel", "Quilicura", "Quinta Normal", "Recoleta", "Renca", "San Joaquín", "San Miguel", "San Ramón", "Santiago", "Vitacura", "Puente Alto", "Pirque", "San José de Maipo", "Colina", "Lampa", "Tiltil", "San Bernardo", "Buin", "Calera de Tango", "Paine", "Melipilla", "Alhué", "Curacaví", "María Pinto", "San Pedro", "Talagante", "El Monte", "Isla de Maipo", "Padre Hurtado", "Peñaflor"],
+  "VI": ["Rancagua", "Codegua", "Coinco", "Coltauco", "Doñihue", "Graneros", "Las Cabras", "Machalí", "Malloa", "Mostazal", "Olivar", "Peumo", "Pichidegua", "Quinta de Tilcoco", "Rengo", "Requínoa", "San Vicente", "Pichilemu", "La Estrella", "Litueche", "Marchihue", "Navidad", "Paredones", "San Fernando", "Chépica", "Chimbarongo", "Lolol", "Nancagua", "Palmilla", "Peralillo", "Placilla", "Pumanque", "Santa Cruz"],
+  "VII": ["Talca", "Constitución", "Curepto", "Empedrado", "Maule", "Pelarco", "Pencahue", "Río Claro", "San Clemente", "San Rafael", "Cauquenes", "Chanco", "Pelluhue", "Curicó", "Hualañé", "Licantén", "Molina", "Rauco", "Romeral", "Sagrada Familia", "Teno", "Vichuquén", "Linares", "Colbún", "Longaví", "Parral", "Retiro", "San Javier", "Villa Alegre", "Yerbas Buenas"],
+  "XVI": ["Chillán", "Bulnes", "Chillán Viejo", "El Carmen", "Pemuco", "Pinto", "Quillón", "San Ignacio", "Yungay", "Quirihue", "Cobquecura", "Coelemu", "Ninhue", "Portezuelo", "Ránquil", "Trehuaco", "San Carlos", "Coihueco", "Ñiquén", "San Fabián", "San Nicolás"],
+  "VIII": ["Concepción", "Coronel", "Chiguayante", "Florida", "Hualqui", "Lota", "Penco", "San Pedro de la Paz", "Santa Juana", "Talcahuano", "Tomé", "Hualpén", "Lebu", "Arauco", "Cañete", "Contulmo", "Curaulahue", "Los Álamos", "Tirúa", "Los Ángeles", "Antuco", "Cabrero", "Laja", "Mulchén", "Nacimiento", "Negrete", "Quilaco", "Quilleco", "San Rosendo", "Santa Bárbara", "Tucapel", "Yumbel", "Alto Biobío"],
+  "IX": ["Temuco", "Carahue", "Cunco", "Curarrehue", "Freire", "Galvarino", "Gorbea", "Lautaro", "Loncoche", "Melipeuco", "Nueva Imperial", "Padre Las Casas", "Perquenco", "Pitrufquén", "Pucón", "Saavedra", "Teodoro Schmidt", "Toltén", "Vilcún", "Villarrica", "Cholchol", "Angol", "Collipulli", "Curacautín", "Ercilla", "Lonquimay", "Los Sauces", "Lumaco", "Purén", "Renaico", "Traiguén", "Victoria"],
+  "XIV": ["Valdivia", "Corral", "Lanco", "Los Lagos", "Máfil", "Mariquina", "Paillaco", "Panguipulli", "La Unión", "Futrono", "Lago Ranco", "Río Bueno"],
+  "X": ["Puerto Montt", "Calbuco", "Cochamó", "Fresia", "Frutillar", "Los Muermos", "Llanquihue", "Maullín", "Puerto Varas", "Castro", "Ancud", "Chonchi", "Curaco de Vélez", "Dalcahue", "Puqueldón", "Queilén", "Quellón", "Quemchi", "Quinchao", "Osorno", "Puerto Octay", "Purranque", "Puyehue", "Río Negro", "San Juan de la Costa", "San Pablo", "Chaitén", "Futaleufú", "Hualaihué", "Palena"],
+  "XI": ["Coyhaique", "Lago Verde", "Aysén", "Cisnes", "Guaitecas", "Cochrane", "O'Higgins", "Tortel", "Chile Chico", "Río Ibáñez"],
+  "XII": ["Punta Arenas", "Laguna Blanca", "Río Verde", "San Gregorio", "Cabo de Hornos (Ex Navarino)", "Antártica", "Porvenir", "Primavera", "Timaukel", "Natales", "Torres del Paine"]
+};
+
 export default function CheckoutPage() {
-  const { cart, total, clearCart } = useCart();
+  const { cart, total } = useCart(); // No limpiamos el carrito aquí, solo al volver del pago exitoso
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -46,7 +66,17 @@ export default function CheckoutPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Si cambia la región, reseteamos la ciudad para obligar a elegir una válida
+    if (name === "region") {
+      setFormData((prev) => ({ 
+        ...prev, 
+        [name]: value,
+        city: "" // Borramos la ciudad anterior
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,7 +95,7 @@ export default function CheckoutPage() {
         .from("orders")
         .insert({
           user_id: user.id,
-          total: total,
+          total: total, // ✅ CORREGIDO: coincide con columna 'total'
           status: "pending",
           shipping_address: `${formData.address}, ${formData.apartment}, ${formData.city}, ${formData.region}`,
           contact_phone: formData.phone,
@@ -84,9 +114,9 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: total,
-          orderId: orderData.id, // Enviamos el ID de la orden creada
-          returnUrl: `${window.location.origin}/webpay/return`, // Dónde vuelve si paga
-          finalUrl: `${window.location.origin}/webpay/final`    // Dónde vuelve al final
+          orderId: orderData.id, 
+          returnUrl: `${window.location.origin}/webpay/return`, 
+          finalUrl: `${window.location.origin}/webpay/final`    
         }),
       });
 
@@ -97,7 +127,6 @@ export default function CheckoutPage() {
       }
 
       // 3. Redirección Automática a Webpay (Formulario Invisible)
-      // Webpay requiere enviar el token por POST a la URL que nos dio
       const form = document.createElement("form");
       form.action = result.url;
       form.method = "POST";
@@ -110,12 +139,7 @@ export default function CheckoutPage() {
       form.appendChild(tokenInput);
       document.body.appendChild(form);
       
-      // ¡Enviamos al usuario a pagar!
-      form.submit();
-
-      // Nota: No limpiamos el carrito aquí (clearCart) 
-      // porque si el usuario se arrepiente y vuelve atrás, 
-      // queremos que su carrito siga lleno. Lo limpiamos en la página de éxito.
+      form.submit(); // ¡Adios! Nos vamos a Transbank
 
     } catch (error: any) {
       console.error(error);
@@ -198,20 +222,50 @@ export default function CheckoutPage() {
                   <input type="text" name="apartment" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" placeholder="Torre B, Depto 204" />
                 </div>
 
+                {/* SELECTOR DE REGIONES (Todo Chile) */}
                 <div className="col-span-1">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Región</label>
                   <select name="region" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" required>
                     <option value="">Seleccionar...</option>
-                    <option value="RM">Metropolitana</option>
+                    <option value="XV">Arica y Parinacota</option>
+                    <option value="I">Tarapacá</option>
+                    <option value="II">Antofagasta</option>
+                    <option value="III">Atacama</option>
+                    <option value="IV">Coquimbo</option>
                     <option value="V">Valparaíso</option>
+                    <option value="RM">Metropolitana</option>
+                    <option value="VI">O'Higgins</option>
+                    <option value="VII">Maule</option>
+                    <option value="XVI">Ñuble</option>
                     <option value="VIII">Biobío</option>
+                    <option value="IX">Araucanía</option>
+                    <option value="XIV">Los Ríos</option>
+                    <option value="X">Los Lagos</option>
+                    <option value="XI">Aysén</option>
+                    <option value="XII">Magallanes</option>
                   </select>
                 </div>
 
+                {/* SELECTOR DE COMUNAS (Dinámico) */}
                 <div className="col-span-1">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ciudad / Comuna</label>
-                  <input type="text" name="city" onChange={handleInputChange} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" placeholder="Providencia" required />
+                  <select 
+                    name="city" 
+                    value={formData.city} 
+                    onChange={handleInputChange} 
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none disabled:bg-gray-100 disabled:text-gray-400" 
+                    required
+                    disabled={!formData.region}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {formData.region && comunasPorRegion[formData.region]?.map((comuna) => (
+                      <option key={comuna} value={comuna}>
+                        {comuna}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
               </div>
             </section>
 
@@ -273,7 +327,7 @@ export default function CheckoutPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Conectando con Webpay...
+                    Conectando Webpay...
                   </span>
                 ) : (
                   "Ir a Pagar"
