@@ -5,7 +5,6 @@ import { useCart } from "@/context/CartContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import Link from "next/link";
 
 export default function CheckoutPage() {
   const { cart, total, clearCart } = useCart();
@@ -26,7 +25,7 @@ export default function CheckoutPage() {
     phone: "",
   });
 
-  // Cargar usuario al inicio para autocompletar email
+  // Cargar usuario
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -38,7 +37,7 @@ export default function CheckoutPage() {
     getUser();
   }, []);
 
-  // Redirigir si el carrito está vacío
+  // Redirigir si carrito vacío
   useEffect(() => {
     if (cart.length === 0) {
       router.push("/carrito");
@@ -61,14 +60,13 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 1. Guardar la orden en Supabase
+      // 1. Guardar la orden en Supabase (Estado: pending)
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
           user_id: user.id,
-          // ✅ CORRECCIÓN AQUÍ: Usamos 'total' en lugar de 'total_amount'
           total: total,
-          status: "pending", 
+          status: "pending",
           shipping_address: `${formData.address}, ${formData.apartment}, ${formData.city}, ${formData.region}`,
           contact_phone: formData.phone,
           items: cart 
@@ -78,17 +76,50 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      // 2. Éxito
-      toast.success("¡Orden creada exitosamente!");
-      clearCart(); 
+      // 2. Iniciar transacción con Webpay (Llamada a tu API)
+      toast.info("Conectando con Webpay...");
+
+      const response = await fetch("/api/webpay/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: total,
+          orderId: orderData.id, // Enviamos el ID de la orden creada
+          returnUrl: `${window.location.origin}/webpay/return`, // Dónde vuelve si paga
+          finalUrl: `${window.location.origin}/webpay/final`    // Dónde vuelve al final
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al conectar con Webpay");
+      }
+
+      // 3. Redirección Automática a Webpay (Formulario Invisible)
+      // Webpay requiere enviar el token por POST a la URL que nos dio
+      const form = document.createElement("form");
+      form.action = result.url;
+      form.method = "POST";
+
+      const tokenInput = document.createElement("input");
+      tokenInput.type = "hidden";
+      tokenInput.name = "token_ws";
+      tokenInput.value = result.token;
+
+      form.appendChild(tokenInput);
+      document.body.appendChild(form);
       
-      // 3. Redirigir a perfil o página de éxito
-      router.push("/perfil");
+      // ¡Enviamos al usuario a pagar!
+      form.submit();
+
+      // Nota: No limpiamos el carrito aquí (clearCart) 
+      // porque si el usuario se arrepiente y vuelve atrás, 
+      // queremos que su carrito siga lleno. Lo limpiamos en la página de éxito.
 
     } catch (error: any) {
       console.error(error);
-      toast.error("Hubo un error al procesar tu orden: " + error.message);
-    } finally {
+      toast.error("Error: " + error.message);
       setLoading(false);
     }
   };
@@ -184,17 +215,17 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-             {/* Botón Pagar Móvil (Se oculta en PC) */}
+             {/* Botón Pagar Móvil */}
              <button 
                 onClick={handleSubmit}
                 disabled={loading}
                 className="lg:hidden w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50"
               >
-                {loading ? "Procesando..." : "Confirmar Pedido"}
+                {loading ? "Procesando..." : "Ir a Pagar"}
               </button>
           </div>
 
-          {/* COLUMNA DERECHA: Resumen (Sticky) */}
+          {/* COLUMNA DERECHA: Resumen */}
           <div className="lg:col-span-5">
             <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 lg:sticky lg:top-24">
               <h3 className="text-xl font-black text-gray-900 mb-6">Resumen del Pedido</h3>
@@ -214,7 +245,6 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              {/* Cálculos */}
               <div className="space-y-3 py-6 border-t border-gray-100">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
@@ -226,7 +256,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Total Final */}
               <div className="flex justify-between items-center pt-6 border-t border-gray-100 mb-8">
                 <span className="text-lg font-bold text-gray-900">Total a pagar</span>
                 <span className="text-3xl font-black text-gray-900">${total.toLocaleString("es-CL")}</span>
@@ -244,15 +273,15 @@ export default function CheckoutPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Procesando...
+                    Conectando con Webpay...
                   </span>
                 ) : (
-                  "Confirmar y Pagar"
+                  "Ir a Pagar"
                 )}
               </button>
 
               <div className="mt-6 flex items-center justify-center gap-2 text-gray-400 text-xs">
-                 <span>🔒 Pago seguro SSL</span>
+                 <span>🔒 Pago seguro vía Webpay</span>
               </div>
             </div>
           </div>
