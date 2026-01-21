@@ -168,6 +168,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Términos */}
+          {/* Términos (Modificado con Link) */}
           <div className="flex items-center gap-3 pt-2">
             <input 
               type="checkbox" 
@@ -178,7 +179,15 @@ export default function RegisterPage() {
               className="w-5 h-5 accent-black rounded cursor-pointer"
             />
             <label htmlFor="acceptTerms" className="text-sm text-gray-500 cursor-pointer select-none">
-              Acepto los <span className="text-black font-bold underline">Términos y Condiciones</span>
+              Acepto los{" "}
+              <Link 
+                href="/terminos" 
+                target="_blank"        // Abre en pestaña nueva
+                rel="noopener noreferrer" // Seguridad extra
+                className="text-black font-bold underline hover:text-gray-700"
+              >
+                Términos y Condiciones
+              </Link>
             </label>
           </div>
 
