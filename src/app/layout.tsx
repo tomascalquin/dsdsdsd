@@ -16,10 +16,44 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "DropsC | Store",
-  description: "Tienda oficial DropsC",
-};
+  // 1. IMPORTANTE: Tu dominio real (sin esto las fotos no cargan en WhatsApp)
+  metadataBase: new URL("https://dropsc.app"), 
 
+  // 2. Título Inteligente:
+  // "default" es para el Home. 
+  // "template" agrega tu marca automáticamente a las otras páginas (ej: "Zapatillas | DropsC")
+  title: {
+    default: "DropsC Store | Tu tienda online",
+    template: "%s | DropsC Store",
+  },
+  description: "Encuentra los mejores productos con envío rápido a todo Chile.",
+
+  // 3. OpenGraph (Cómo se ve en WhatsApp/Facebook)
+  openGraph: {
+    title: "DropsC Store | Ofertas Exclusivas",
+    description: "Envíos a todo Chile y pago seguro con Webpay.",
+    url: "https://dropsc.app",
+    siteName: "DropsC Store",
+    images: [
+      {
+        url: "/hero-banner.png", // Asegúrate de que esta imagen exista en la carpeta public/
+        width: 1200,
+        height: 630,
+        alt: "DropsC Store Banner",
+      },
+    ],
+    locale: "es_CL",
+    type: "website",
+  },
+
+  // 4. Twitter Card (Cómo se ve en X)
+  twitter: {
+    card: "summary_large_image",
+    title: "DropsC Store",
+    description: "Los mejores productos en un solo lugar.",
+    images: ["/hero-banner.png"], // La misma imagen
+  },
+};
 export default function RootLayout({
   children,
 }: Readonly<{
