@@ -13,19 +13,26 @@ export default function RecoverPage() {
     setLoading(true);
 
     try {
-      // Supabase envía un correo con un link que redirige a /actualizar-password
+      // 🟢 LA SOLUCIÓN:
+      // Construimos la URL completa para que no se pierda.
+      // 1. Va a /auth/callback (donde verifica el token)
+      // 2. Lleva el parámetro ?next=/actualizar-password (donde queremos que termine)
+      const redirectUrl = `${window.location.origin}/auth/callback?next=/actualizar-password`;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/actualizar-password`,
+        redirectTo: redirectUrl,
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error("Error: " + error.message);
       } else {
-        toast.success("¡Listo! Revisa tu correo para cambiar la clave.");
+        toast.success("¡Correo enviado! Revisa tu bandeja de entrada.");
+        // Opcional: Limpiar el campo
+        setEmail("");
       }
     } catch (err) {
       console.error(err);
-      toast.error("Error al enviar el correo.");
+      toast.error("Error al intentar enviar el correo.");
     } finally {
       setLoading(false);
     }
@@ -36,7 +43,7 @@ export default function RecoverPage() {
       <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-black text-gray-900 mb-2">Recuperar Contraseña</h1>
-          <p className="text-gray-400 text-sm">Te enviaremos un enlace para restablecerla</p>
+          <p className="text-gray-400 text-sm">Te enviaremos un enlace mágico para restablecerla</p>
         </div>
 
         <form onSubmit={handleRecover} className="space-y-6">
@@ -54,15 +61,15 @@ export default function RecoverPage() {
 
           <button 
             disabled={loading} 
-            className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg"
+            className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg hover:scale-[1.02] active:scale-95"
           >
             {loading ? "Enviando..." : "Enviar Enlace"}
           </button>
         </form>
 
         <div className="mt-8 text-center text-sm">
-          <Link href="/login" className="text-gray-500 hover:text-black font-bold">
-            ← Volver al Login
+          <Link href="/login" className="text-gray-500 hover:text-black font-bold transition-colors">
+            ← Volver al inicio de sesión
           </Link>
         </div>
       </div>
