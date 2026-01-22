@@ -27,7 +27,8 @@ export default function RecoverPage() {
         setStep("code"); // Pasamos a la pantalla de poner código
       }
     } catch (err) {
-      toast.error("Error al conectar.");
+      console.error(err);
+      toast.error("Error al conectar con el servidor.");
     } finally {
       setLoading(false);
     }
@@ -39,7 +40,8 @@ export default function RecoverPage() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      // Usamos el tipo 'recovery' para verificar el código de reseteo
+      const { error } = await supabase.auth.verifyOtp({
         email,
         token,
         type: 'recovery',
@@ -48,13 +50,14 @@ export default function RecoverPage() {
       if (error) {
         toast.error("Código inválido o expirado");
       } else {
-        toast.success("Código correcto.");
+        toast.success("Código correcto. Redirigiendo...");
         // Al verificar, Supabase loguea al usuario automáticamente.
         // Lo mandamos directo a cambiar la clave.
         router.push("/actualizar-password");
       }
     } catch (err) {
-      toast.error("Error al verificar.");
+      console.error(err);
+      toast.error("Error al verificar el código.");
     } finally {
       setLoading(false);
     }
@@ -89,7 +92,7 @@ export default function RecoverPage() {
             </div>
             <button 
               disabled={loading} 
-              className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg"
+              className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg hover:scale-[1.02] active:scale-95"
             >
               {loading ? "Enviando..." : "Enviar Código"}
             </button>
@@ -98,35 +101,35 @@ export default function RecoverPage() {
           /* FORMULARIO DE CÓDIGO */
           <form onSubmit={handleVerifyCode} className="space-y-6">
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Código de 6 dígitos</label>
+              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Código de Seguridad</label>
               <input 
                 type="text" 
                 value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all text-center text-2xl tracking-widest font-mono"
-                placeholder="123456"
+                // .trim() elimina espacios al principio o final si copian mal
+                onChange={(e) => setToken(e.target.value.trim())}
+                className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all text-center text-xl font-mono tracking-wider"
+                placeholder="Copia el código aquí"
                 required
-                maxLength={6}
               />
             </div>
             <button 
               disabled={loading} 
-              className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg"
+              className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg hover:scale-[1.02] active:scale-95"
             >
               {loading ? "Verificando..." : "Verificar Código"}
             </button>
             <button 
               type="button"
               onClick={() => setStep("email")}
-              className="w-full text-sm text-gray-500 hover:text-black underline"
+              className="w-full text-sm text-gray-500 hover:text-black underline transition-colors"
             >
-              ¿No llegó? Intentar de nuevo
+              ¿No llegó? Intentar de nuevo con otro correo
             </button>
           </form>
         )}
 
         <div className="mt-8 text-center text-sm">
-          <Link href="/login" className="text-gray-500 hover:text-black font-bold">
+          <Link href="/login" className="text-gray-500 hover:text-black font-bold transition-colors">
             ← Volver al Login
           </Link>
         </div>
