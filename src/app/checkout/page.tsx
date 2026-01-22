@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
-// 🇨🇱 Base de datos de Regiones y Comunas de Chile
+// ... (Mantén tu const comunasPorRegion igual, no la borres)
 const comunasPorRegion: Record<string, string[]> = {
   "XV": ["Arica", "Camarones", "Putre", "General Lagos"],
   "I": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Camiña", "Colchane", "Huara", "Pica"],
@@ -90,7 +90,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 1. Guardar la orden en Supabase (Estado: pending)
+      // 🟢 PASO 1: Guardar la cabecera de la orden
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -99,14 +99,29 @@ export default function CheckoutPage() {
           status: "pending",
           shipping_address: `${formData.address}, ${formData.apartment}, ${formData.city}, ${formData.region}`,
           contact_phone: formData.phone,
-          items: cart 
+          // NOTA: Ya no enviamos "items" aquí porque van en su propia tabla
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      // 2. Iniciar transacción con Webpay (Llamada a tu API)
+      // 🟢 PASO 2: Guardar CADA producto en la tabla "order_items"
+      // Preparamos los datos para insertarlos todos de una vez (Bulk Insert)
+      const orderItems = cart.map((item) => ({
+        order_id: orderData.id,    // El ID de la orden que acabamos de crear
+        product_id: item.id,       // El ID del producto
+        quantity: 1,               // Cantidad (si tu carrito soporta más, usa item.quantity)
+        price: item.price          // Guardamos el precio al momento de la compra
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      // 🔵 PASO 3: Iniciar Webpay
       toast.info("Conectando con Webpay...");
 
       const response = await fetch("/api/webpay/create", {
@@ -126,7 +141,7 @@ export default function CheckoutPage() {
         throw new Error(result.error || "Error al conectar con Webpay");
       }
 
-      // 3. Redirección Automática a Webpay (Formulario Invisible)
+      // Redirección Automática
       const form = document.createElement("form");
       form.action = result.url;
       form.method = "POST";
@@ -163,7 +178,6 @@ export default function CheckoutPage() {
            <span className="text-sm font-bold text-gray-400">Pago</span>
         </div>
 
-        {/* 🟢 CAMBIO: Ahora todo está envuelto en <form onSubmit={handleSubmit}> */}
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
           
           {/* COLUMNA IZQUIERDA: Formulario */}
@@ -270,7 +284,6 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-             {/* 🟢 CAMBIO: Botón Pagar Móvil (Type Submit) */}
              <button 
                 type="submit" 
                 disabled={loading}
@@ -316,7 +329,6 @@ export default function CheckoutPage() {
                 <span className="text-3xl font-black text-gray-900">${total.toLocaleString("es-CL")}</span>
               </div>
 
-              {/* 🟢 CAMBIO: Botón Pagar Desktop (Type Submit) */}
               <button 
                 type="submit" 
                 disabled={loading}
@@ -340,7 +352,6 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-        {/* Cerramos el Form aquí */}
         </form>
 
       </div>
