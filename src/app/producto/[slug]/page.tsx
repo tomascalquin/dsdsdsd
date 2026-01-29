@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-// Componentes (Asegúrate de que existan en tu carpeta components)
+// Componentes
 import ProductGallery from "@/components/ProductGallery";
 import ProductActions from "@/components/ProductActions"; 
 import ProductReviews from "@/components/ProductReviews";
@@ -14,12 +14,11 @@ type Props = {
 };
 
 // ----------------------------------------------------------------------
-// 1. GENERACIÓN DE METADATOS (SEO para WhatsApp/Google)
+// 1. GENERACIÓN DE METADATOS (SEO para WhatsApp/Google/RRSS)
 // ----------------------------------------------------------------------
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
-  // Buscamos solo los datos necesarios para el SEO
   const { data: product } = await supabase
     .from("products")
     .select("title, description, price, product_images(url)")
@@ -32,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  // Usamos la primera imagen o una por defecto
+  // Usamos la primera imagen disponible o un fallback
   const imageUrl = product.product_images?.[0]?.url || "https://dropsc.store/hero-banner.png";
 
   return {
@@ -84,13 +83,17 @@ export default async function ProductPage({ params }: Props) {
     notFound();
   }
 
-  // JSON-LD: Datos estructurados para Google Shopping
-  const jsonLd = {
+  // --- CONFIGURACIÓN SEO ESTRUCTURADO (JSON-LD) ---
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://dropsc.store";
+  const productUrl = `${baseUrl}/producto/${slug}`;
+  
+  // 1. Schema de Producto (Rich Snippet: Precio, Stock, Imágenes)
+  const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
-    image: product.product_images?.[0]?.url,
     description: product.description,
+    image: product.product_images?.map((img: any) => img.url) || [],
     sku: product.id,
     brand: {
       "@type": "Brand",
@@ -98,25 +101,57 @@ export default async function ProductPage({ params }: Props) {
     },
     offers: {
       "@type": "Offer",
-      url: `https://dropsc.store/producto/${slug}`,
+      url: productUrl,
       priceCurrency: "CLP",
       price: product.price,
-      availability: "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition"
+      availability: "https://schema.org/InStock", // Podrías condicionar esto con product.stock > 0
+      itemCondition: "https://schema.org/NewCondition",
+      seller: {
+        "@type": "Organization",
+        name: "DropsC Store"
+      }
     }
+  };
+
+  // 2. Schema de Migas de Pan (Breadcrumbs)
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Inicio",
+        item: baseUrl
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Catálogo",
+        item: `${baseUrl}/catalogo`
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: product.title,
+        item: productUrl
+      }
+    ]
   };
 
   return (
     <div className="min-h-screen bg-white pb-20">
-      {/* Script invisible para Google */}
+      {/* Script JSON-LD para Google */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ 
+          __html: JSON.stringify([productSchema, breadcrumbSchema]) 
+        }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* MIGAS DE PAN (Breadcrumbs) */}
+        {/* MIGAS DE PAN (Visuales) */}
         <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
           <Link href="/" className="hover:text-black hover:underline transition-colors">
             Inicio
@@ -135,7 +170,6 @@ export default async function ProductPage({ params }: Props) {
           
           {/* COLUMNA IZQUIERDA: Galería de Imágenes */}
           <div className="relative">
-             {/* Pasamos las imágenes al componente cliente */}
              <ProductGallery images={product.product_images || []} />
           </div>
 
